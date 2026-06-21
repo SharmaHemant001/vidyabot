@@ -35,9 +35,9 @@ export async function POST(request: Request) {
       }
     };
 
-    // 2. Call Gemini 1.5 Flash to perform OCR and extract the academic question
+    // 2. Call Gemini 2.5 Flash to perform OCR and extract the academic question
     const genAI = new GoogleGenerativeAI(geminiKey);
-    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const geminiPrompt = "Extract the written academic question or text from this image. Only return the extracted question text as is, without adding extra words, greetings, or formatting.";
     
     let extractedQuestion = "";
@@ -87,7 +87,7 @@ RE-EXPLAIN MODE: If the student says anything like "samajh nahi aaya", "didn't u
 TONE: Warm, patient, never condescending. You are the best teacher the student has ever had.`;
 
     const explainModel = genAI.getGenerativeModel({
-      model: "gemini-flash-latest",
+      model: "gemini-2.5-flash",
       systemInstruction: systemPrompt,
     });
 

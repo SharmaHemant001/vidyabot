@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     Note: The "correct" value must be the EXACT string match of one of the items inside the "options" array.`;
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-flash-latest",
+      model: "gemini-2.5-flash",
       systemInstruction: systemPrompt,
       generationConfig: {
         responseMimeType: "application/json",

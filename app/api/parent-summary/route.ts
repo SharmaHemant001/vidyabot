@@ -98,7 +98,7 @@ Structure the paragraph strictly to cover:
 Keep the summary under 120 words. Be kind, supportive, and professional.`;
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-flash-latest",
+      model: "gemini-2.5-flash",
       systemInstruction: systemPrompt,
     });
 

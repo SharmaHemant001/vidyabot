@@ -57,7 +57,7 @@ EXPLANATION STYLE (CRITICAL FOR RE-EXPLAIN):
 TONE: Warm, patient, never condescending. You are the best teacher the student has ever had.`;
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-flash-latest",
+      model: "gemini-2.5-flash",
       systemInstruction: systemPrompt,
     });
 
