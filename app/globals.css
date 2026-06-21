@@ -3,25 +3,237 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0D1B2A;
+  --foreground: #FFFFFF;
+  --teal-accent: #0D9488;
+  --slate-secondary: #94A3B8;
+  --dark-navy-card: #1B263B;
+  --navy-border: #415A77;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-plus-jakarta), Inter, system-ui, sans-serif;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0D1B2A;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #0D9488;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0b7a70;
+}
+
+/* Global keyboard focus states */
+*:focus-visible {
+  outline: 2px solid rgba(13, 148, 136, 0.5) !important;
+  outline-offset: 2px !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes pulse-red {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.5;
   }
 }
+
+.animate-pulse-red {
+  animation: pulse-red 1.5s infinite ease-in-out;
+}
+
+@keyframes slide-in-bottom {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in-bottom 0.3s ease-out forwards;
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-message-in {
+  animation: messageIn 0.3s ease-out forwards;
+}
+
+@keyframes flame-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+}
+
+.animate-flame-pulse {
+  display: inline-block;
+  animation: flame-pulse 1.2s infinite ease-in-out;
+}
+
+@keyframes shimmer-streak {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.25),
+    transparent
+  );
+  background-repeat: no-repeat;
+  background-size: 200% 100%;
+  animation: shimmer-streak 3s infinite linear;
+}
+
+@keyframes typing-dots {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.typing-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background-color: #0D9488;
+  border-radius: 50%;
+  margin: 0 2px;
+}
+
+.typing-dot:nth-child(1) {
+  animation: typing-dots 1s infinite 0.1s;
+}
+.typing-dot:nth-child(2) {
+  animation: typing-dots 1s infinite 0.2s;
+}
+.typing-dot:nth-child(3) {
+  animation: typing-dots 1s infinite 0.3s;
+}
+
+/* Print utilities for Parent Report */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #1E293B !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-card {
+    border: 1px solid #E2E8F0 !important;
+    background: #FFFFFF !important;
+    color: #1E293B !important;
+    box-shadow: none !important;
+  }
+  .print-text-dark {
+    color: #0F172A !important;
+  }
+}
+
+/* Skeleton Loading Shimmer & XP Float */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+@keyframes xpFloat {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-40px);
+  }
+}
+
+.animate-xp-float {
+  animation: xpFloat 1.2s ease-out forwards;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
