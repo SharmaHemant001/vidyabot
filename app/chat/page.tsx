@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Camera, Mic, Send, User, LayoutDashboard, Volume2, Sparkles, X, ArrowLeft, LogOut, Award, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useUser } from '@/context/UserContext';
+import { useUser, User as ContextUser } from '@/context/UserContext';
 import { getSubjectColor } from '@/lib/utils';
 
 interface Message {
@@ -37,7 +37,16 @@ interface LocalSession {
 
 export default function ChatPage() {
   const router = useRouter();
-  const { user, xp, loading: contextLoading, addXp, logout, updateUser } = useUser();
+  const { user: contextUser, xp, addXp, logout, updateUser } = useUser();
+  const [user, setUser] = useState<ContextUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Sync local user state with context user
+  useEffect(() => {
+    if (contextUser) {
+      setUser(contextUser);
+    }
+  }, [contextUser]);
   
   // Log selected language when user changes (Requirement 2)
   useEffect(() => {
@@ -152,13 +161,27 @@ export default function ChatPage() {
 
   // Redirect if no user session exists (Fix 1)
   useEffect(() => {
-    if (!contextLoading && !user) {
-      router.push('/login');
-    } else if (user) {
-      fetchChatHistory(user.id);
+    const saved = localStorage.getItem('vidyabot_user');
+    if (!saved) {
+      router.replace('/login');
+      return;
+    }
+    try {
+      const parsed = JSON.parse(saved);
+      if (!parsed.id) {
+        router.replace('/login');
+        return;
+      }
+      setUser(parsed);
+      fetchChatHistory(parsed.id);
+    } catch {
+      localStorage.removeItem('vidyabot_user');
+      router.replace('/login');
+    } finally {
+      setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, contextLoading]);
+  }, []);
 
   // Auto scroll to bottom on new messages
   useEffect(() => {
@@ -696,14 +719,14 @@ export default function ChatPage() {
     }
   };
 
-  if (contextLoading) {
-    return (
-      <div className="flex h-screen bg-[#0D1B2A] items-center justify-center text-white">
-        <RefreshCw className="w-10 h-10 text-[#0D9488] animate-spin mb-2" />
-        <span className="text-sm text-[#94A3B8] ml-3">Loading session...</span>
+  if (loading) return (
+    <div className="flex h-screen bg-[#0D1B2A] items-center justify-center text-white flex-col">
+      <div className="text-5xl animate-bounce mb-4">🧠</div>
+      <div className="text-sm text-[#0D9488] font-bold tracking-widest animate-pulse">
+        Loading VidyaBot...
       </div>
-    );
-  }
+    </div>
+  );
 
   if (!user) return null;
 

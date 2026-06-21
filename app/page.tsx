@@ -2,17 +2,28 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Camera, Mic, Brain, Sparkles, AlertCircle } from 'lucide-react';
-import { useUser } from '@/context/UserContext';
+import { useUser, User as ContextUser } from '@/context/UserContext';
 
 export default function LandingPage() {
   const router = useRouter();
   const { user, login } = useUser();
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [demoError, setDemoError] = useState('');
+  const [localUser, setLocalUser] = useState<ContextUser | null>(null);
+  const currentUser = localUser || user;
 
-  // Removed auto-redirect to allow "Continue as [Name]" session restored button
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('vidyabot_user');
+      if (saved) {
+        setLocalUser(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error('Failed to read local user:', e);
+    }
+  }, []);
 
   const handleDemoMode = async () => {
     try {
@@ -70,9 +81,9 @@ export default function LandingPage() {
           </span>
         </div>
         <div className="flex items-center space-x-4">
-          {user ? (
+          {currentUser ? (
             <>
-              <span className="text-xs text-[#94A3B8] hidden sm:inline">Logged in as {user.name}</span>
+              <span className="text-xs text-[#94A3B8] hidden sm:inline">Logged in as {currentUser.name}</span>
               <Link
                 href="/chat"
                 className="px-5 py-2.5 text-sm font-semibold bg-[#0D9488] hover:bg-[#0c8277] text-white rounded-xl transition duration-300 shadow-md shadow-[#0D9488]/20 flex items-center min-h-[44px]"
@@ -178,16 +189,25 @@ export default function LandingPage() {
           </div>
 
           {/* Call to Actions */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center w-full max-w-md mb-4 relative z-10">
-            {user ? (
-              <Link
-                href="/chat"
-                className="btn-shimmer w-full px-8 py-4 font-bold bg-[#0D9488] hover:bg-[#0c8277] text-white rounded-xl transition duration-300 shadow-lg shadow-[#0D9488]/30 flex justify-center items-center min-h-[48px]"
-              >
-                Continue as {user.name} 🚀
-              </Link>
+          <div className="flex flex-col items-center justify-center w-full max-w-md mb-4 relative z-10">
+            {currentUser ? (
+              <div className="flex flex-col items-center justify-center w-full">
+                <button
+                  onClick={() => router.push('/chat')}
+                  style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}
+                  className="w-full py-3.5 px-7 text-white font-semibold text-base rounded-xl transition duration-300 shadow-lg hover:opacity-95 flex justify-center items-center min-h-[48px]"
+                >
+                  Continue as {currentUser.name} →
+                </button>
+                <Link
+                  href="/login"
+                  className="text-xs text-[#94A3B8] hover:text-[#0D9488] transition underline mt-2.5"
+                >
+                  Login as different student
+                </Link>
+              </div>
             ) : (
-              <>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center w-full">
                 <Link
                   href="/onboarding"
                   className="btn-shimmer w-full sm:w-auto px-8 py-4 font-bold bg-[#0D9488] hover:bg-[#0c8277] text-white rounded-xl transition duration-300 shadow-lg shadow-[#0D9488]/30 flex justify-center items-center min-h-[48px]"
@@ -200,7 +220,7 @@ export default function LandingPage() {
                 >
                   Login
                 </Link>
-              </>
+              </div>
             )}
           </div>
 
@@ -352,7 +372,7 @@ export default function LandingPage() {
         <span>Built for Bharat 🇮🇳. Free forever.</span>
         <span className="hidden sm:inline text-slate-600">|</span>
         <a 
-          href="https://github.com" 
+          href="https://github.com/SharmaHemant001/vidyabot" 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-[#94A3B8] hover:text-[#0D9488] flex items-center space-x-1.5 transition"

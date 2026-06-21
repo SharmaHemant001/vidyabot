@@ -64,6 +64,15 @@ export default function LoginPage() {
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasteData = e.clipboardData.getData('text').trim();
+    if (/^\d{4}$/.test(pasteData)) {
+      const digits = pasteData.split('');
+      setPinDigits(digits);
+      document.getElementById('login-pin-3')?.focus();
+    }
+  };
+
   // Submit Login handler
   const handleLoginSubmit = async (e?: React.FormEvent, forceUser?: UserProfile) => {
     if (e) e.preventDefault();
@@ -162,10 +171,12 @@ export default function LoginPage() {
         // Mismatch - trigger shake & error message
         setError('Incorrect PIN. Try again.');
         setShake(true);
-        setTimeout(() => setShake(false), 400);
-        setPinDigits(['', '', '', '']);
-        const firstInput = document.getElementById('login-pin-0');
-        firstInput?.focus();
+        setTimeout(() => {
+          setShake(false);
+          setPinDigits(['', '', '', '']);
+          const firstInput = document.getElementById('login-pin-0');
+          firstInput?.focus();
+        }, 1000);
       }
 
     } catch (err) {
@@ -295,44 +306,63 @@ export default function LoginPage() {
             </div>
 
             {/* Input 2: PIN */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#94A3B8] uppercase tracking-wider block">Your 4-Digit PIN</label>
-              <div className={`flex justify-between gap-3 ${shake ? 'animate-shake' : ''}`}>
-                {[0, 1, 2, 3].map((idx) => (
-                  <input
-                    key={idx}
-                    id={`login-pin-${idx}`}
-                    type={showPin ? "text" : "password"}
-                    maxLength={1}
-                    value={pinDigits[idx]}
-                    disabled={submitting || isSuccess}
-                    onChange={(e) => handlePinChange(e.target.value, idx)}
-                    onKeyDown={(e) => handlePinKeyDown(e, idx)}
-                    className={`w-12 h-14 bg-white/[0.05] border-2 rounded-xl text-center text-xl font-bold text-white focus:outline-none transition duration-200 ${
-                      isSuccess 
-                        ? 'border-[#10B981] bg-emerald-950/20' 
-                        : 'border-[#0D9488]/30 focus:border-[#0D9488] focus:shadow-[0_0_12px_rgba(13,148,136,0.3)]'
-                    }`}
-                    pattern="\d*"
-                    inputMode="numeric"
-                    required
-                  />
-                ))}
+            <div className="space-y-2">
+              <style dangerouslySetInnerHTML={{__html: `
+                @keyframes shake {
+                  0%, 100% { transform: translateX(0); }
+                  20% { transform: translateX(-8px); }
+                  40% { transform: translateX(8px); }
+                  60% { transform: translateX(-4px); }
+                  80% { transform: translateX(4px); }
+                }
+                .animate-shake {
+                  animation: shake 0.4s ease-in-out;
+                }
+              `}} />
+              <label className="text-xs font-bold text-[#94A3B8] uppercase tracking-wider block text-center">Your 4-Digit PIN</label>
+              <div className={`flex justify-center gap-3 ${shake ? 'animate-shake' : ''}`}>
+                {[0, 1, 2, 3].map((idx) => {
+                  const val = pinDigits[idx];
+                  let borderClass = 'border-[#0D9488]/30 bg-white/[0.05]';
+                  
+                  if (isSuccess) {
+                    borderClass = 'border-[#10B981] bg-emerald-950/20';
+                  } else if (shake) {
+                    borderClass = 'border-[#EF4444] bg-red-950/25';
+                  } else if (val) {
+                    borderClass = 'border-[#0D9488] bg-[#0D9488]/10';
+                  }
+
+                  return (
+                    <input
+                      key={idx}
+                      id={`login-pin-${idx}`}
+                      type={showPin ? "text" : "password"}
+                      maxLength={1}
+                      value={val}
+                      disabled={submitting || isSuccess}
+                      onChange={(e) => handlePinChange(e.target.value, idx)}
+                      onKeyDown={(e) => handlePinKeyDown(e, idx)}
+                      onPaste={handlePaste}
+                      className={`w-[52px] h-[60px] border-2 rounded-xl text-center text-[28px] font-bold text-white focus:outline-none transition-all duration-200 focus:border-[#0D9488] focus:shadow-[0_0_12px_rgba(13,148,136,0.4)] ${borderClass}`}
+                      pattern="\d*"
+                      inputMode="numeric"
+                      required
+                    />
+                  );
+                })}
               </div>
             </div>
 
-            {/* Show/Hide PIN */}
-            <div className="flex items-center space-x-2">
-              <input
-                id="login-show-pin"
-                type="checkbox"
-                checked={showPin}
-                onChange={(e) => setShowPin(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-[#0D9488] focus:ring-[#0D9488] bg-transparent"
-              />
-              <label htmlFor="login-show-pin" className="text-xs text-[#94A3B8] select-none cursor-pointer">
-                Show PIN digits
-              </label>
+            {/* Show/Hide PIN Button Below */}
+            <div className="flex justify-center mt-1">
+              <button
+                type="button"
+                onClick={() => setShowPin(!showPin)}
+                className="text-xs text-[#94A3B8] hover:text-[#0D9488] transition font-semibold"
+              >
+                {showPin ? '🙈 Hide PIN' : '👁 Show PIN'}
+              </button>
             </div>
 
             {/* Feedback messages */}

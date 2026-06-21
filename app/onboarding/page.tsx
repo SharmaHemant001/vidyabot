@@ -199,17 +199,21 @@ export default function OnboardingPage() {
                 setName(e.target.value);
                 setError('');
               }}
-              placeholder="e.g. Rohan"
-              className="w-full px-4 py-4 bg-[#0D1B2A] border border-[#415A77] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-[#0D9488] transition duration-200 min-h-[48px]"
-              onKeyDown={(e) => e.key === 'Enter' && nextStep()}
+              placeholder="Enter your full name"
+              className="w-full px-4 py-3.5 bg-white/[0.05] border-2 border-[#0d9488]/30 focus:border-[#0D9488] rounded-xl text-base text-white placeholder-slate-500 focus:outline-none transition duration-200 min-h-[48px]"
+              onKeyDown={(e) => e.key === 'Enter' && name.trim().length >= 2 && nextStep()}
               autoFocus
             />
+            <p className="text-xs text-slate-400 mt-2">अपना नाम लिखें</p>
 
             {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
 
             <button
               onClick={nextStep}
-              className="w-full mt-6 py-4 bg-[#0D9488] hover:bg-[#0c8277] text-white font-bold rounded-xl transition duration-300 flex justify-center items-center space-x-2 min-h-[48px]"
+              disabled={name.trim().length < 2}
+              className={`w-full mt-6 py-4 bg-[#0D9488] hover:bg-[#0c8277] text-white font-bold rounded-xl transition duration-300 flex justify-center items-center space-x-2 min-h-[48px] ${
+                name.trim().length < 2 ? 'opacity-40 pointer-events-none' : ''
+              }`}
             >
               <span>Next</span>
               <ArrowRight className="w-5 h-5" />

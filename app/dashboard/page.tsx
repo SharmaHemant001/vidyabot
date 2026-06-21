@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, BookOpen, Award, FileText, BarChart3, LogOut, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BookOpen, Award, FileText, BarChart3, LogOut } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/lib/supabase';
-import { useUser } from '@/context/UserContext';
+import { useUser, User as ContextUser } from '@/context/UserContext';
 import { getSubjectColor } from '@/lib/utils';
 
 interface Doubt {
@@ -34,9 +34,18 @@ interface LocalSession {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, xp, loading: contextLoading, logout } = useUser();
+  const { user: contextUser, xp, logout } = useUser();
+  const [user, setUser] = useState<ContextUser | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [dbXp, setDbXp] = useState(0);
   
+  // Sync local user state with context user
+  useEffect(() => {
+    if (contextUser) {
+      setUser(contextUser);
+    }
+  }, [contextUser]);
+
   // Sync dbXp with context xp in local mode
   useEffect(() => {
     if (user && user.id.startsWith('local-')) {
@@ -58,19 +67,33 @@ export default function DashboardPage() {
 
   // Protect route
   useEffect(() => {
-    if (!contextLoading && !user) {
-      router.push('/login');
-    } else if (user) {
-      loadDashboardData(user.id);
-      loadStudyTime();
+    const saved = localStorage.getItem('vidyabot_user');
+    if (!saved) {
+      router.replace('/login');
+      return;
+    }
+    try {
+      const parsed = JSON.parse(saved);
+      if (!parsed.id) {
+        router.replace('/login');
+        return;
+      }
+      setUser(parsed);
+      loadDashboardData(parsed.id);
+      loadStudyTime(parsed.id);
+    } catch {
+      localStorage.removeItem('vidyabot_user');
+      router.replace('/login');
+    } finally {
+      setSessionLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, contextLoading]);
+  }, []);
 
-  const loadStudyTime = () => {
+  const loadStudyTime = (userId: string) => {
     try {
-      if (!user) return;
-      const key = `vidyabot_study_time_${user.id}`;
+      if (!userId) return;
+      const key = `vidyabot_study_time_${userId}`;
       // Migrate legacy study time if any
       if (!localStorage.getItem(key)) {
         const legacyTime = localStorage.getItem('vidyabot_study_time');
@@ -353,14 +376,14 @@ export default function DashboardPage() {
     }
   };
 
-  if (contextLoading) {
-    return (
-      <div className="flex h-screen bg-[#0D1B2A] items-center justify-center text-white">
-        <RefreshCw className="w-10 h-10 text-[#0D9488] animate-spin mb-2" />
-        <span className="text-sm text-[#94A3B8] ml-3">Loading session...</span>
+  if (sessionLoading) return (
+    <div className="flex h-screen bg-[#0D1B2A] items-center justify-center text-white flex-col">
+      <div className="text-5xl animate-bounce mb-4">🧠</div>
+      <div className="text-sm text-[#0D9488] font-bold tracking-widest animate-pulse">
+        Loading VidyaBot...
       </div>
-    );
-  }
+    </div>
+  );
 
   if (!user) return null;
 
@@ -403,192 +426,203 @@ export default function DashboardPage() {
           <p className="text-sm text-[#94A3B8] mt-1">Here is a review of your study doubts and progress this week.</p>
         </div>
 
-        {/* Stats Row (Skeletons shown while loading) */}
+        {/* Dashboard Content */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-            {[1, 2, 3, 4, 5].map((idx) => (
-              <div key={idx} className="skeleton h-28 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 p-6 flex flex-col justify-center space-y-2 opacity-50" />
-            ))}
+          <div className="space-y-8">
+            <style dangerouslySetInnerHTML={{__html: `
+              @keyframes shimmer {
+                0% { background-position: 200% 0; }
+                100% { background-position: -200% 0; }
+              }
+              .animate-shimmer {
+                animation: shimmer 1.5s infinite linear;
+              }
+            `}} />
+            {/* 3 Skeleton Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="h-28 rounded-2xl bg-gradient-to-r from-[#1B263B] via-[#2C3E50] to-[#1B263B] bg-[length:400%_100%] animate-shimmer border border-[#415A77]/30" />
+              <div className="h-28 rounded-2xl bg-gradient-to-r from-[#1B263B] via-[#2C3E50] to-[#1B263B] bg-[length:400%_100%] animate-shimmer border border-[#415A77]/30" />
+              <div className="h-28 rounded-2xl bg-gradient-to-r from-[#1B263B] via-[#2C3E50] to-[#1B263B] bg-[length:400%_100%] animate-shimmer border border-[#415A77]/30" />
+            </div>
+            {/* 1 Skeleton Chart */}
+            <div className="p-6 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 min-h-[320px]">
+              <div className="h-6 w-48 bg-gradient-to-r from-[#1B263B] via-[#2C3E50] to-[#1B263B] bg-[length:400%_100%] animate-shimmer rounded mb-4" />
+              <div className="h-4 w-64 bg-gradient-to-r from-[#1B263B] via-[#2C3E50] to-[#1B263B] bg-[length:400%_100%] animate-shimmer rounded mb-8" />
+              <div className="h-56 bg-gradient-to-r from-[#1B263B] via-[#2C3E50] to-[#1B263B] bg-[length:400%_100%] animate-shimmer rounded-xl opacity-40 w-full" />
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-            {/* Card 1: Total doubts */}
-            <div className="p-5 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-l-4 border-l-[#0D9488] flex items-center space-x-3.5 shadow-xl"
-                 style={{ background: 'linear-gradient(135deg, rgba(13,148,136,0.08) 0%, transparent 100%)' }}>
-              <div className="w-10 h-10 rounded-xl bg-[#0D9488]/10 flex items-center justify-center text-[#0D9488] shrink-0">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[9px] text-[#94A3B8] uppercase tracking-wider font-bold">Total Doubts</p>
-                <h3 className="text-3xl font-black text-[#0D9488] mt-0.5">{stats.totalDoubts}</h3>
-                <p className="text-[9px] text-teal-400">Past 7 days</p>
-              </div>
-            </div>
-
-            {/* Card 2: Active Subject */}
-            <div className="p-5 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-l-4 border-l-[#F59E0B] flex items-center space-x-3.5 shadow-xl"
-                 style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, transparent 100%)' }}>
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-[#F59E0B] shrink-0">
-                <Award className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[9px] text-[#94A3B8] uppercase tracking-wider font-bold">Active Subject</p>
-                <h3 className="text-base font-black text-[#F59E0B] mt-1.5 truncate max-w-[110px]">{stats.activeSubject}</h3>
-                <p className="text-[9px] text-amber-400">Needs focus</p>
-              </div>
-            </div>
-
-            {/* Card 3: Streak */}
-            <div className="p-5 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-l-4 border-l-[#EF4444] flex items-center space-x-3.5 shadow-xl"
-                 style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.08) 0%, transparent 100%)' }}>
-              <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 text-xl animate-flame-pulse shrink-0">
-                🔥
-              </div>
-              <div>
-                <p className="text-[9px] text-[#94A3B8] uppercase tracking-wider font-bold">Study Streak</p>
-                <h3 className="text-3xl font-black text-red-400 mt-0.5">{stats.streak} Days</h3>
-                <p className="text-[9px] text-orange-400">Keep it up!</p>
-              </div>
-            </div>
-
-            {/* Card 4: Total XP (Feature A) */}
-            <div className="p-5 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-l-4 border-l-amber-400 flex items-center space-x-3.5 shadow-xl"
-                 style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, transparent 100%)' }}>
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 text-xl shrink-0">
-                ⚡
-              </div>
-              <div>
-                <p className="text-[9px] text-[#94A3B8] uppercase tracking-wider font-bold">Total XP</p>
-                <h3 className="text-3xl font-black text-amber-400 mt-0.5">{dbXp} XP</h3>
-                <p className="text-[9px] text-amber-400">Gamified Score</p>
-              </div>
-            </div>
-
-            {/* Card 5: Study Time (Feature D) */}
-            <div className="p-5 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-l-4 border-l-blue-400 flex items-center space-x-3.5 shadow-xl"
-                 style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, transparent 100%)' }}>
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 text-xl shrink-0">
-                ⏱️
-              </div>
-              <div>
-                <p className="text-[9px] text-[#94A3B8] uppercase tracking-wider font-bold">Study Time</p>
-                <h3 className="text-3xl font-black text-blue-400 mt-0.5">{studyTimeFormatted}</h3>
-                <p className="text-[9px] text-blue-400">This Week</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Charts & Graphs / Parent Report */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Chart Card */}
-          <div className="md:col-span-2 p-6 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-t-2 border-t-[#0D9488] shadow-xl flex flex-col justify-between min-h-[320px]">
-            <div>
-              <h4 className="text-base font-bold text-[#0D9488] mb-1 flex items-center gap-1.5">
-                <BarChart3 className="w-5 h-5" /> Your Weak Topics This Week
-              </h4>
-              <p className="text-xs text-[#94A3B8] mb-6">Visual analysis of academic doubts by subject area.</p>
-            </div>
-            
-            {loading ? (
-              <div className="h-56 skeleton rounded-xl bg-[#0D1B2A]/40 w-full animate-pulse opacity-45" />
-            ) : (
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#415A77/20" vertical={false} />
-                    <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                    <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#1B263B', borderColor: '#415A77', color: '#FFF', borderRadius: 8 }}
-                      cursor={{ fill: 'rgba(13, 148, 136, 0.1)' }}
-                    />
-                    <Bar dataKey="doubts" fill="#0D9488" radius={[6, 6, 0, 0]} label={{ position: 'top', fill: '#94A3B8', fontSize: 11 }} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-
-          {/* Action Parent Report Card (Fix 5: GRADIENT CTA) */}
-          <div 
-            className="p-6 rounded-2xl shadow-[0_8px_32px_rgba(13,148,136,0.4)] flex flex-col justify-between text-white border border-[#0D9488]/30 min-h-[320px]"
-            style={{ background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 50%, #134E4A 100%)' }}
-          >
-            <div className="space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center">
-                <FileText className="w-12 h-12 text-white" />
-              </div>
-              <div>
-                <h4 className="text-lg font-black tracking-tight text-white">📋 Parent Report</h4>
-                <p className="text-xs text-white/95 mt-1 leading-relaxed">
-                  Share your weekly progress with parents
-                </p>
-              </div>
-              <ul className="space-y-1.5 text-xs text-white/90">
-                <li className="flex items-center">✓ AI-generated analysis in Hindi</li>
-                <li className="flex items-center">✓ Subject-wise performance chart</li>
-                <li className="flex items-center">✓ Printable PDF format</li>
-                <li className="flex items-center">✓ Shareable link</li>
-              </ul>
-            </div>
-            
-            <button
-              onClick={() => router.push(`/parent-summary/${user.id}`)}
-              className="w-full mt-6 py-3.5 bg-white hover:bg-slate-100 text-[#0D9488] font-extrabold rounded-xl text-center shadow-lg transition duration-200 flex items-center justify-center space-x-2 min-h-[44px]"
-            >
-              <span>View Full Report →</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Recent Doubts List */}
-        <div className="p-6 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 shadow-xl">
-          <h4 className="text-base font-bold text-white mb-4">Recent Doubts History</h4>
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-16 bg-[#0D1B2A] rounded-xl border border-[#415A77]/25 animate-pulse skeleton opacity-50" />
-              ))}
-            </div>
-          ) : recentDoubts.length === 0 ? (
-            <div className="py-8 text-center space-y-4">
-              <p className="text-sm text-[#94A3B8]">No doubts recorded yet. Go ask VidyaBot!</p>
-              <button
-                onClick={() => router.push('/chat')}
-                className="px-5 py-2.5 text-sm font-semibold bg-[#0D9488] hover:bg-[#0c8277] text-white rounded-xl transition duration-200 shadow-md shadow-[#0D9488]/20"
-              >
-                Go to Chat 💬
-              </button>
-            </div>
-          ) : (
-            <div className="divide-y divide-[#415A77]/20">
-              {recentDoubts.map((doubt) => (
-                <div key={doubt.id} className="py-4 flex items-center justify-between first:pt-0 last:pb-0 hover:bg-[#0D9488]/5 px-2 rounded-xl transition duration-150 cursor-pointer">
-                  <div className="space-y-1 pr-4 flex items-start gap-2.5">
-                    <span className="text-base shrink-0 mt-0.5" title={`${doubt.input_type || 'text'} doubt`}>
-                      {getInputTypeIcon(doubt.input_type)}
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-white line-clamp-1">{doubt.question}</p>
-                      <p className="text-[10px] text-[#94A3B8]">
-                        {new Date(doubt.timestamp).toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                  <span className={`shrink-0 px-2.5 py-1 text-[10px] font-bold rounded-full ${getSubjectColor(doubt.subject)}`}>
-                    {doubt.subject}
-                  </span>
+          <>
+            {/* Real Stats Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              {/* Card 1: Total doubts */}
+              <div className="p-5 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-l-4 border-l-[#0D9488] flex items-center space-x-3.5 shadow-xl"
+                   style={{ background: 'linear-gradient(135deg, rgba(13,148,136,0.08) 0%, transparent 100%)' }}>
+                <div className="w-10 h-10 rounded-xl bg-[#0D9488]/10 flex items-center justify-center text-[#0D9488] shrink-0">
+                  <BookOpen className="w-5 h-5" />
                 </div>
-              ))}
+                <div>
+                  <p className="text-[9px] text-[#94A3B8] uppercase tracking-wider font-bold">Total Doubts</p>
+                  <h3 className="text-3xl font-black text-[#0D9488] mt-0.5">{stats.totalDoubts}</h3>
+                  <p className="text-[9px] text-teal-400">Past 7 days</p>
+                </div>
+              </div>
+
+              {/* Card 2: Active Subject */}
+              <div className="p-5 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-l-4 border-l-[#F59E0B] flex items-center space-x-3.5 shadow-xl"
+                   style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, transparent 100%)' }}>
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-[#F59E0B] shrink-0">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[9px] text-[#94A3B8] uppercase tracking-wider font-bold">Active Subject</p>
+                  <h3 className="text-base font-black text-[#F59E0B] mt-1.5 truncate max-w-[110px]">{stats.activeSubject}</h3>
+                  <p className="text-[9px] text-amber-400">Needs focus</p>
+                </div>
+              </div>
+
+              {/* Card 3: Streak */}
+              <div className="p-5 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-l-4 border-l-[#EF4444] flex items-center space-x-3.5 shadow-xl"
+                   style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.08) 0%, transparent 100%)' }}>
+                <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 text-xl animate-flame-pulse shrink-0">
+                  🔥
+                </div>
+                <div>
+                  <p className="text-[9px] text-[#94A3B8] uppercase tracking-wider font-bold">Study Streak</p>
+                  <h3 className="text-3xl font-black text-red-400 mt-0.5">{stats.streak} Days</h3>
+                  <p className="text-[9px] text-orange-400">Keep it up!</p>
+                </div>
+              </div>
+
+              {/* Card 4: Total XP (Feature A) */}
+              <div className="p-5 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-l-4 border-l-amber-400 flex items-center space-x-3.5 shadow-xl"
+                   style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, transparent 100%)' }}>
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 text-xl shrink-0">
+                  ⚡
+                </div>
+                <div>
+                  <p className="text-[9px] text-[#94A3B8] uppercase tracking-wider font-bold">Total XP</p>
+                  <h3 className="text-3xl font-black text-amber-400 mt-0.5">{dbXp} XP</h3>
+                  <p className="text-[9px] text-amber-400">Gamified Score</p>
+                </div>
+              </div>
+
+              {/* Card 5: Study Time (Feature D) */}
+              <div className="p-5 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-l-4 border-l-blue-400 flex items-center space-x-3.5 shadow-xl"
+                   style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, transparent 100%)' }}>
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 text-xl shrink-0">
+                  ⏱️
+                </div>
+                <div>
+                  <p className="text-[9px] text-[#94A3B8] uppercase tracking-wider font-bold">Study Time</p>
+                  <h3 className="text-3xl font-black text-blue-400 mt-0.5">{studyTimeFormatted}</h3>
+                  <p className="text-[9px] text-blue-400">This Week</p>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Charts & Graphs / Parent Report */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Chart Card */}
+              <div className="md:col-span-2 p-6 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 border-t-2 border-t-[#0D9488] shadow-xl flex flex-col justify-between min-h-[320px]">
+                <div>
+                  <h4 className="text-base font-bold text-[#0D9488] mb-1 flex items-center gap-1.5">
+                    <BarChart3 className="w-5 h-5" /> Your Weak Topics This Week
+                  </h4>
+                  <p className="text-xs text-[#94A3B8] mb-6">Visual analysis of academic doubts by subject area.</p>
+                </div>
+                
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#415A77/20" vertical={false} />
+                      <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                      <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#1B263B', borderColor: '#415A77', color: '#FFF', borderRadius: 8 }}
+                        cursor={{ fill: 'rgba(13, 148, 136, 0.1)' }}
+                      />
+                      <Bar dataKey="doubts" fill="#0D9488" radius={[6, 6, 0, 0]} label={{ position: 'top', fill: '#94A3B8', fontSize: 11 }} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Action Parent Report Card (Fix 5: GRADIENT CTA) */}
+              <div 
+                className="p-6 rounded-2xl shadow-[0_8px_32px_rgba(13,148,136,0.4)] flex flex-col justify-between text-white border border-[#0D9488]/30 min-h-[320px]"
+                style={{ background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 50%, #134E4A 100%)' }}
+              >
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center">
+                    <FileText className="w-12 h-12 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black tracking-tight text-white">📋 Parent Report</h4>
+                    <p className="text-xs text-white/95 mt-1 leading-relaxed">
+                      Share your weekly progress with parents
+                    </p>
+                  </div>
+                  <ul className="space-y-1.5 text-xs text-white/90">
+                    <li className="flex items-center">✓ AI-generated analysis in Hindi</li>
+                    <li className="flex items-center">✓ Subject-wise performance chart</li>
+                    <li className="flex items-center">✓ Printable PDF format</li>
+                    <li className="flex items-center">✓ Shareable link</li>
+                  </ul>
+                </div>
+                
+                <button
+                  onClick={() => router.push(`/parent-summary/${user.id}`)}
+                  className="w-full mt-6 py-3.5 bg-white hover:bg-slate-100 text-[#0D9488] font-extrabold rounded-xl text-center shadow-lg transition duration-200 flex items-center justify-center space-x-2 min-h-[44px]"
+                >
+                  <span>View Full Report →</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Recent Doubts List */}
+            <div className="p-6 rounded-2xl bg-[#1B263B] border border-[#415A77]/30 shadow-xl">
+              <h4 className="text-base font-bold text-white mb-4">Recent Doubts History</h4>
+              {recentDoubts.length === 0 ? (
+                <div className="py-8 text-center space-y-4">
+                  <p className="text-sm text-[#94A3B8]">No doubts recorded yet. Go ask VidyaBot!</p>
+                  <button
+                    onClick={() => router.push('/chat')}
+                    className="px-5 py-2.5 text-sm font-semibold bg-[#0D9488] hover:bg-[#0c8277] text-white rounded-xl transition duration-200 shadow-md shadow-[#0D9488]/20"
+                  >
+                    Go to Chat 💬
+                  </button>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#415A77]/20">
+                  {recentDoubts.map((doubt) => (
+                    <div key={doubt.id} className="py-4 flex items-center justify-between first:pt-0 last:pb-0 hover:bg-[#0D9488]/5 px-2 rounded-xl transition duration-150 cursor-pointer">
+                      <div className="space-y-1 pr-4 flex items-start gap-2.5">
+                        <span className="text-base shrink-0 mt-0.5" title={`${doubt.input_type || 'text'} doubt`}>
+                          {getInputTypeIcon(doubt.input_type)}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-white line-clamp-1">{doubt.question}</p>
+                          <p className="text-[10px] text-[#94A3B8]">
+                            {new Date(doubt.timestamp).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`shrink-0 px-2.5 py-1 text-[10px] font-bold rounded-full ${getSubjectColor(doubt.subject)}`}>
+                        {doubt.subject}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
       </main>
 
@@ -602,7 +636,7 @@ export default function DashboardPage() {
         <span>Built for Bharat 🇮🇳. Free forever.</span>
         <span className="hidden sm:inline text-slate-600">|</span>
         <a 
-          href="https://github.com" 
+          href="https://github.com/SharmaHemant001/vidyabot" 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-[#94A3B8] hover:text-[#0D9488] flex items-center space-x-1.5 transition"
