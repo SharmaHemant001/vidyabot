@@ -980,7 +980,11 @@ export default function ChatPage() {
                         </button>
                       )}
 
-                      {!msg.isReexplain && (
+                      {!msg.isReexplain && 
+                       !msg.text.includes("unavailable") && 
+                       !msg.text.startsWith("Sorry, I couldn't") && 
+                       !msg.text.startsWith("Sorry, I didn't") && 
+                       !msg.text.startsWith("Sorry, I am missing") && (
                         <button
                           onClick={() => handleReexplain(msg)}
                           className="flex items-center space-x-1 text-[11px] font-bold text-[#0D9488] hover:text-teal-400 min-h-[32px] px-2 rounded hover:bg-[#0D9488]/10 transition"
