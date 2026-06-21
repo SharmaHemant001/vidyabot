@@ -1,0 +1,10 @@
+- [x] Fix 1: Chat page and dashboard "Loading session..." styled bouncy brain loader and quick replace redirects.
+- [x] Fix 2: Login page OTP-style PIN boxes, focus shifting, clipboard paste, show/hide button, shake on error, and green outline on success.
+- [x] Fix 3: Point footer GitHub link to actual repository (target="_blank" rel="noopener noreferrer").
+- [x] Fix 4: Style onboarding name input field visibly, add secondary Hindi subtitle, and disable Next button until name length >= 2.
+- [x] Fix 5: Open Graph meta tags in layout.tsx and create public/og-image.png.
+- [x] Fix 6: Landing page "Continue as [Name]" button with gradient styling for returning users.
+- [x] Fix 7: Holistic shimmer skeleton loader for stats cards and chart block on dashboard page.
+- [x] Fix 8: Voice doubt transcription failure pipeline check, logging, format conversions, OpenAI keys check, and fallback states.
+- [x] Verify: Run `npm run build` successfully with 0 errors.
+- [x] Push: Stage all changes, commit, and push to remote.
