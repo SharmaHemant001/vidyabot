@@ -483,6 +483,10 @@ export default function ChatPage() {
   const handleVoiceUpload = async (audioBlob: Blob) => {
     if (!user) return;
 
+    // Log input blob details (Requirement 1)
+    console.log("Audio blob size:", audioBlob.size);
+    console.log("Audio mime type:", audioBlob.type);
+
     const newStudentMsg: Message = {
       id: `voice-${Date.now()}-q`,
       sender: 'student',
@@ -504,9 +508,46 @@ export default function ChatPage() {
       // Award Gamified XP (Feature A)
       addXp(20); // +20 XP for voice doubts
 
+      // Verify and convert unsupported formats (Requirement 3)
+      let uploadedBlob = audioBlob;
+      let mimeType = audioBlob.type;
+      
+      const isSupported = mimeType.includes('webm') || 
+                          mimeType.includes('wav') || 
+                          mimeType.includes('mp3') || 
+                          mimeType.includes('mpeg');
+                          
+      if (!isSupported) {
+        console.log("Unsupported audio format detected:", mimeType, ". Converting to WAV...");
+        try {
+          uploadedBlob = await convertToWav(audioBlob);
+          mimeType = 'audio/wav';
+          console.log("Converted audio size:", uploadedBlob.size);
+          console.log("Converted audio type:", uploadedBlob.type);
+        } catch (convErr) {
+          console.error("Audio conversion to WAV failed, sending original blob as fallback:", convErr);
+        }
+      }
+
+      // Determine file extension and name
+      let extension = 'webm';
+      if (mimeType.includes('wav')) {
+        extension = 'wav';
+      } else if (mimeType.includes('mp3') || mimeType.includes('mpeg')) {
+        extension = 'mp3';
+      } else if (mimeType.includes('mp4')) {
+        extension = 'mp4';
+      }
+      const fileName = `doubt-audio.${extension}`;
+
+      // Log details of file uploaded in FormData (Requirement 4)
+      console.log("audio file name:", fileName);
+      console.log("audio size:", uploadedBlob.size);
+      console.log("mime type:", mimeType);
+
       console.log("Language sent:", user.language);
       const formData = new FormData();
-      formData.append('audio', audioBlob, 'doubt-audio.webm');
+      formData.append('audio', uploadedBlob, fileName);
       formData.append('user_id', user.id);
       formData.append('userId', user.id);
       formData.append('class_level', String(user.class_level));
@@ -1174,4 +1215,97 @@ export default function ChatPage() {
       )}
     </div>
   );
+}
+
+interface WindowWithWebkit extends Window {
+  webkitAudioContext?: typeof AudioContext;
+}
+
+// Helper function to convert any audio blob to a 16-bit PCM WAV blob in the browser
+async function convertToWav(blob: Blob): Promise<Blob> {
+  if (typeof window === 'undefined') {
+    throw new Error("Window is not defined (SSR environment)");
+  }
+  const AudioContextClass = window.AudioContext || (window as unknown as WindowWithWebkit).webkitAudioContext;
+  if (!AudioContextClass) {
+    throw new Error("Web Audio API not supported in this browser");
+  }
+  const audioContext = new AudioContextClass();
+  const arrayBuffer = await blob.arrayBuffer();
+  
+  // decodeAudioData
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  
+  const numOfChan = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const format = 1; // 1 = raw PCM
+  const bitDepth = 16;
+  
+  let result: Float32Array;
+  if (numOfChan === 2) {
+    result = interleave(audioBuffer.getChannelData(0), audioBuffer.getChannelData(1));
+  } else {
+    result = audioBuffer.getChannelData(0);
+  }
+  
+  const wavBuffer = new ArrayBuffer(44 + result.length * 2);
+  const view = new DataView(wavBuffer);
+  
+  /* RIFF identifier */
+  writeString(view, 0, 'RIFF');
+  /* file length */
+  view.setUint32(4, 36 + result.length * 2, true);
+  /* RIFF type */
+  writeString(view, 8, 'WAVE');
+  /* format chunk identifier */
+  writeString(view, 12, 'fmt ');
+  /* format chunk length */
+  view.setUint32(16, 16, true);
+  /* sample format (raw) */
+  view.setUint16(20, format, true);
+  /* channel count */
+  view.setUint16(22, numOfChan, true);
+  /* sample rate */
+  view.setUint32(24, sampleRate, true);
+  /* byte rate (sample rate * block align) */
+  view.setUint32(28, sampleRate * numOfChan * (bitDepth / 8), true);
+  /* block align (channel count * bytes per sample) */
+  view.setUint16(32, numOfChan * (bitDepth / 8), true);
+  /* bits per sample */
+  view.setUint16(34, bitDepth, true);
+  /* data chunk identifier */
+  writeString(view, 36, 'data');
+  /* data chunk length */
+  view.setUint32(40, result.length * 2, true);
+  
+  floatTo16BitPCM(view, 44, result);
+  
+  return new Blob([wavBuffer], { type: 'audio/wav' });
+}
+
+function interleave(inputL: Float32Array, inputR: Float32Array): Float32Array {
+  const length = inputL.length + inputR.length;
+  const result = new Float32Array(length);
+  let index = 0;
+  let inputIndex = 0;
+  
+  while (index < length) {
+    result[index++] = inputL[inputIndex];
+    result[index++] = inputR[inputIndex];
+    inputIndex++;
+  }
+  return result;
+}
+
+function floatTo16BitPCM(output: DataView, offset: number, input: Float32Array) {
+  for (let i = 0; i < input.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, input[i]));
+    output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+}
+
+function writeString(view: DataView, offset: number, str: string) {
+  for (let i = 0; i < str.length; i++) {
+    view.setUint8(offset + i, str.charCodeAt(i));
+  }
 }

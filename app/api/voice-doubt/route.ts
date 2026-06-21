@@ -11,6 +11,12 @@ export async function POST(request: Request) {
     const classLevel = formData.get('class_level') as string | null || formData.get('classLevel') as string | null;
     const language = formData.get('language') as string | null;
 
+    console.log("Voice route hit");
+    if (audioFile) {
+      console.log("Audio blob size:", audioFile.size);
+      console.log("Audio mime type:", audioFile.type);
+    }
+
     console.log("Language received:", language);
     console.log("Language passed to Gemini:", language);
 
@@ -25,6 +31,8 @@ export async function POST(request: Request) {
     const geminiKey = process.env.GEMINI_API_KEY;
     const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
 
+    console.log("OPENAI_API_KEY exists:", !!openaiKey);
+
     if (!openaiKey || !geminiKey) {
       throw new Error("Required API keys (OpenAI/Gemini) are not defined in environment variables");
     }
@@ -34,8 +42,24 @@ export async function POST(request: Request) {
     const arrayBuffer = await audioFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
+    // Determine dynamic extension based on mimeType
+    const mimeType = audioFile.type || 'audio/webm';
+    let extension = 'webm';
+    if (mimeType.includes('wav')) {
+      extension = 'wav';
+    } else if (mimeType.includes('mp3') || mimeType.includes('mpeg')) {
+      extension = 'mp3';
+    } else if (mimeType.includes('mp4')) {
+      extension = 'mp4';
+    } else if (mimeType.includes('m4a')) {
+      extension = 'm4a';
+    } else if (mimeType.includes('ogg')) {
+      extension = 'ogg';
+    }
+    const fileName = `audio.${extension}`;
+
     // Convert buffer to file format Whisper expects
-    const file = await toFile(buffer, 'audio.webm', { type: audioFile.type || 'audio/webm' });
+    const file = await toFile(buffer, fileName, { type: mimeType });
     
     let transcript = "";
     try {
@@ -44,11 +68,13 @@ export async function POST(request: Request) {
         model: 'whisper-1',
       });
       transcript = whisperResult.text.trim();
+      console.log("Transcript:", transcript);
     } catch (whisperError) {
-      console.error("OpenAI Whisper transcription error:", whisperError);
+      console.error("Whisper error:", whisperError);
+      const errMsg = whisperError instanceof Error ? whisperError.message : String(whisperError);
       return NextResponse.json({
-        error: "We had trouble hearing your voice. Please try again or type your doubt.",
-        response: "Sorry, I couldn't transcribe your voice. Please try speaking clearly or use text!"
+        error: `Transcription failed: ${errMsg}`,
+        response: "Voice transcription unavailable. Please type your question."
       }, { status: 200 });
     }
 
