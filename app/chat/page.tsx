@@ -84,6 +84,9 @@ export default function ChatPage() {
   // Recording states
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+  const speechTranscriptRef = useRef<string>('');
   
   // Toast state
   const [toastMessage, setToastMessage] = useState('');
@@ -437,6 +440,14 @@ export default function ChatPage() {
   };
 
   // 3. VOICE RECORDING START & STOP
+  const getSupportedMimeType = () => {
+    const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+    for (const type of types) {
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) return type;
+    }
+    return 'audio/webm'; // fallback
+  };
+
   const startRecording = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       showToast('Voice not supported on this browser. Use text or photo instead.');
@@ -445,9 +456,7 @@ export default function ChatPage() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') 
-        ? 'audio/webm' 
-        : 'audio/mp4';
+      const mimeType = getSupportedMimeType();
 
       const recorder = new MediaRecorder(stream, { mimeType });
       const chunks: Blob[] = [];
@@ -463,6 +472,54 @@ export default function ChatPage() {
         await handleVoiceUpload(audioBlob);
       };
 
+      // Start browser speech recognition (Requirement Step 4)
+      speechTranscriptRef.current = '';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const SpeechRecognition = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
+      if (SpeechRecognition) {
+        try {
+          const rec = new SpeechRecognition();
+          rec.continuous = true;
+          rec.interimResults = false;
+          
+          let langCode = 'en-IN';
+          if (user) {
+            if (user.language === 'Hindi') langCode = 'hi-IN';
+            else if (user.language === 'Tamil') langCode = 'ta-IN';
+            else if (user.language === 'Telugu') langCode = 'te-IN';
+            else if (user.language === 'Bengali') langCode = 'bn-IN';
+            else if (user.language === 'Kannada') langCode = 'kn-IN';
+            else if (user.language === 'Malayalam') langCode = 'ml-IN';
+            else if (user.language === 'Gujarati') langCode = 'gu-IN';
+            else if (user.language === 'Marathi') langCode = 'mr-IN';
+            else if (user.language === 'Urdu') langCode = 'ur-IN';
+            else if (user.language === 'Punjabi') langCode = 'pa-IN';
+          }
+          rec.lang = langCode;
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          rec.onresult = (event: any) => {
+            let transcriptSegment = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) {
+                transcriptSegment += event.results[i][0].transcript + ' ';
+              }
+            }
+            speechTranscriptRef.current += transcriptSegment;
+          };
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          rec.onerror = (e: any) => {
+            console.warn("Speech recognition error:", e.error);
+          };
+
+          rec.start();
+          recognitionRef.current = rec;
+        } catch (e) {
+          console.warn("Speech recognition start failed:", e);
+        }
+      }
+
       setMediaRecorder(recorder);
       recorder.start();
       setIsRecording(true);
@@ -477,6 +534,15 @@ export default function ChatPage() {
       mediaRecorder.stop();
       mediaRecorder.stream.getTracks().forEach(track => track.stop());
       setIsRecording(false);
+
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.warn("Speech recognition stop error:", e);
+        }
+        recognitionRef.current = null;
+      }
     }
   };
 
@@ -496,12 +562,12 @@ export default function ChatPage() {
     };
     setMessages(prev => [...prev, newStudentMsg]);
 
-    setVoiceStep('🎤 Transcribing...');
+    setVoiceStep('🎤 Transcribing your voice...');
     const step2 = setTimeout(() => {
-      setVoiceStep('🧠 Thinking...');
-    }, 2500);
+      setVoiceStep('🧠 VidyaBot is thinking...');
+    }, 2000);
     const step3 = setTimeout(() => {
-      setVoiceStep('🔊 Preparing voice...');
+      setVoiceStep('🔊 Preparing response...');
     }, 6000);
 
     try {
@@ -553,6 +619,10 @@ export default function ChatPage() {
       formData.append('class_level', String(user.class_level));
       formData.append('classLevel', String(user.class_level));
       formData.append('language', user.language);
+      
+      // Append fallback browser SpeechRecognition transcript
+      const localTranscript = speechTranscriptRef.current.trim();
+      formData.append('browser_transcript', localTranscript);
 
       const res = await fetch('/api/voice-doubt', {
         method: 'POST',
@@ -571,7 +641,7 @@ export default function ChatPage() {
       setMessages(prev => {
         return prev.map(m => {
           if (m.id === newStudentMsg.id) {
-            return { ...m, text: `🎤 Voice question: "${data.transcript || 'Audio sent'}"` };
+            return { ...m, text: `🎤 Voice question: "${data.transcript || localTranscript || 'Audio sent'}"` };
           }
           return m;
         });

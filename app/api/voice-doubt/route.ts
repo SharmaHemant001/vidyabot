@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import OpenAI, { toFile } from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveDoubtAndIncrementSession } from '@/lib/db-helpers';
 
@@ -38,50 +37,78 @@ export async function POST(request: Request) {
     }
 
     // 1. Transcribe the audio using OpenAI Whisper
-    const openai = new OpenAI({ apiKey: openaiKey });
     const arrayBuffer = await audioFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
-    // Determine dynamic extension based on mimeType
-    const mimeType = audioFile.type || 'audio/webm';
-    let extension = 'webm';
-    if (mimeType.includes('wav')) {
-      extension = 'wav';
-    } else if (mimeType.includes('mp3') || mimeType.includes('mpeg')) {
-      extension = 'mp3';
-    } else if (mimeType.includes('mp4')) {
-      extension = 'mp4';
-    } else if (mimeType.includes('m4a')) {
-      extension = 'm4a';
-    } else if (mimeType.includes('ogg')) {
-      extension = 'ogg';
-    }
-    const fileName = `audio.${extension}`;
-
-    // Convert buffer to file format Whisper expects
-    const file = await toFile(buffer, fileName, { type: mimeType });
-    
     let transcript = "";
+    let whisperFailedWithQuota = false;
+    let whisperErrorMsg = "";
+
     try {
-      const whisperResult = await openai.audio.transcriptions.create({
-        file: file,
-        model: 'whisper-1',
+      const mimeType = audioFile.type || 'audio/webm';
+      const extension = mimeType.includes('mp4') ? 'mp4' : 
+                        mimeType.includes('wav') ? 'wav' : 
+                        mimeType.includes('ogg') ? 'ogg' : 'webm';
+      
+      const whisperFormData = new FormData();
+      const audioBlob = new Blob([buffer], { type: mimeType });
+      whisperFormData.append('file', audioBlob, `recording.${extension}`);
+      whisperFormData.append('model', 'whisper-1');
+
+      console.log("Sending to Whisper: recording." + extension, "size:", audioBlob.size, "mime:", mimeType);
+      
+      const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`
+        },
+        body: whisperFormData
       });
-      transcript = whisperResult.text.trim();
+      
+      const whisperData = await whisperRes.json();
+      
+      if (!whisperRes.ok) {
+        const errorDetail = whisperData.error?.message || JSON.stringify(whisperData);
+        const isQuotaError = whisperRes.status === 429 || 
+                             errorDetail.toLowerCase().includes("quota") || 
+                             errorDetail.toLowerCase().includes("insufficient_quota");
+        if (isQuotaError) {
+          whisperFailedWithQuota = true;
+          console.error("Whisper quota exceeded:", errorDetail);
+        }
+        throw new Error(`OpenAI Whisper API returned status ${whisperRes.status}: ${errorDetail}`);
+      }
+      
+      transcript = (whisperData.text || "").trim();
       console.log("Transcript:", transcript);
     } catch (whisperError) {
-      console.error("Whisper error:", whisperError);
       const errMsg = whisperError instanceof Error ? whisperError.message : String(whisperError);
-      return NextResponse.json({
-        error: `Transcription failed: ${errMsg}`,
-        response: "Voice transcription unavailable. Please type your question."
-      }, { status: 200 });
+      whisperErrorMsg = errMsg;
+      const isQuotaError = errMsg.includes("429") || 
+                           errMsg.toLowerCase().includes("quota") || 
+                           errMsg.toLowerCase().includes("insufficient_quota");
+      if (isQuotaError) {
+        whisperFailedWithQuota = true;
+        console.error("Whisper quota exceeded:", whisperError);
+      } else {
+        console.error("Whisper error:", whisperError);
+      }
+    }
+
+    // A. Read the fallback transcript from client if available (Requirement 4)
+    const browserTranscript = formData.get('browser_transcript') as string | null || formData.get('browserTranscript') as string | null;
+    console.log("Fallback browser transcript received:", browserTranscript);
+
+    if ((!transcript || whisperFailedWithQuota) && browserTranscript && browserTranscript.trim()) {
+      console.log("Using browser speech recognition transcript fallback:", browserTranscript);
+      transcript = browserTranscript.trim();
     }
 
     if (!transcript) {
       return NextResponse.json({
-        error: "No voice detected. Please try speaking again.",
-        response: "Sorry, I didn't hear anything. Please try speaking again or use text!"
+        response: "Voice transcription temporarily unavailable. Please type your question.",
+        subject: "Other",
+        error: whisperErrorMsg || "No transcript generated"
       }, { status: 200 });
     }
 
@@ -205,11 +232,13 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
       subject
     }, { status: 200 });
 
-  } catch (error) {
-    console.error("Voice doubt API error:", error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Voice doubt error:', message);
     return NextResponse.json({
-      error: "AI is taking a break. Please try again in a moment.",
-      response: "Sorry, I couldn't process your voice doubt right now. Please try again!"
+      response: 'Voice transcription unavailable. Please type your question.',
+      subject: 'Other',
+      error: message
     }, { status: 200 });
   }
 }

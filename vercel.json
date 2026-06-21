@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "app/api/voice-doubt/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/photo-doubt/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/parent-summary/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}

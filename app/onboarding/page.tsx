@@ -200,7 +200,12 @@ export default function OnboardingPage() {
                 setError('');
               }}
               placeholder="Enter your full name"
-              className="w-full px-4 py-3.5 bg-white/[0.05] border-2 border-[#0d9488]/30 focus:border-[#0D9488] rounded-xl text-base text-white placeholder-slate-500 focus:outline-none transition duration-200 min-h-[48px]"
+              className="w-full px-4 py-3 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-teal-500 transition-colors"
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '2px solid rgba(13, 148, 136, 0.4)',
+                fontSize: '16px',
+              }}
               onKeyDown={(e) => e.key === 'Enter' && name.trim().length >= 2 && nextStep()}
               autoFocus
             />
@@ -210,9 +215,9 @@ export default function OnboardingPage() {
 
             <button
               onClick={nextStep}
-              disabled={name.trim().length < 2}
+              disabled={!name.trim() || name.trim().length < 2}
               className={`w-full mt-6 py-4 bg-[#0D9488] hover:bg-[#0c8277] text-white font-bold rounded-xl transition duration-300 flex justify-center items-center space-x-2 min-h-[48px] ${
-                name.trim().length < 2 ? 'opacity-40 pointer-events-none' : ''
+                name.trim().length >= 2 ? 'opacity-100 cursor-pointer' : 'opacity-40 cursor-not-allowed'
               }`}
             >
               <span>Next</span>
