@@ -24,6 +24,7 @@ interface LocalDoubt {
   response: string;
   input_type: 'text' | 'photo' | 'voice';
   timestamp: string;
+  image_base_64?: string;
 }
 
 interface LocalSession {
@@ -64,6 +65,7 @@ export default function DashboardPage() {
   const [recentDoubts, setRecentDoubts] = useState<Doubt[]>([]);
   const [loading, setLoading] = useState(true);
   const [studyTimeFormatted, setStudyTimeFormatted] = useState('0m');
+  const [doubtImages, setDoubtImages] = useState<Record<string, string>>({});
 
   // Protect route
   useEffect(() => {
@@ -81,6 +83,20 @@ export default function DashboardPage() {
       setUser(parsed);
       loadDashboardData(parsed.id, parsed.name);
       loadStudyTime(parsed.id);
+
+      // Load doubt images cache
+      try {
+        const cachedImages = JSON.parse(localStorage.getItem('vidyabot_doubt_images') || '{}');
+        const localDoubts: LocalDoubt[] = JSON.parse(localStorage.getItem('local_doubts') || '[]');
+        localDoubts.forEach((d: LocalDoubt) => {
+          if (d.image_base_64) {
+            cachedImages[d.question] = d.image_base_64;
+          }
+        });
+        setDoubtImages(cachedImages);
+      } catch (imgErr) {
+        console.warn("Could not load doubt images on dashboard:", imgErr);
+      }
     } catch {
       localStorage.removeItem('vidyabot_user');
       router.replace('/login');
@@ -624,6 +640,17 @@ export default function DashboardPage() {
                         <span className="text-base shrink-0 mt-0.5" title={`${doubt.input_type || 'text'} doubt`}>
                           {getInputTypeIcon(doubt.input_type)}
                         </span>
+                        {/* Inline Image Thumbnail for photo doubts on dashboard */}
+                        {doubt.input_type === 'photo' && doubtImages[doubt.question] && (
+                          <div className="w-10 h-10 rounded bg-[#0D1B2A] border border-[#415A77]/30 overflow-hidden shrink-0 flex items-center justify-center">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={doubtImages[doubt.question]}
+                              alt="Doubt thumbnail"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
                         <div>
                           <p className="text-sm font-semibold text-white line-clamp-1">{doubt.question}</p>
                           <p className="text-[10px] text-[#94A3B8]">

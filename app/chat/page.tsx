@@ -17,6 +17,7 @@ interface Message {
   subject?: string;
   isReexplain?: boolean;
   audioBase64?: string;
+  imageUrl?: string;
 }
 
 interface LocalDoubt {
@@ -27,6 +28,7 @@ interface LocalDoubt {
   response: string;
   input_type: 'text' | 'photo' | 'voice';
   timestamp: string;
+  image_base_64?: string;
 }
 
 interface LocalSession {
@@ -365,7 +367,7 @@ export default function ChatPage() {
   };
 
   // Save doubt locally when in simulated local mode
-  const saveLocalDoubt = (question: string, response: string, subject: string, inputType: 'text' | 'photo' | 'voice') => {
+  const saveLocalDoubt = (question: string, response: string, subject: string, inputType: 'text' | 'photo' | 'voice', imageBase64?: string) => {
     if (!user) return;
     try {
       const localDoubts: LocalDoubt[] = JSON.parse(localStorage.getItem('local_doubts') || '[]');
@@ -376,7 +378,8 @@ export default function ChatPage() {
         subject,
         response,
         input_type: inputType,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        image_base_64: imageBase64
       };
       localDoubts.push(newDoubt);
       localStorage.setItem('local_doubts', JSON.stringify(localDoubts));
@@ -411,7 +414,8 @@ export default function ChatPage() {
             sender: 'student',
             text: d.question,
             timestamp: new Date(d.timestamp),
-            inputType: d.input_type
+            inputType: d.input_type,
+            imageUrl: d.image_base_64
           });
           mappedMessages.push({
             id: `${d.id}-a`,
@@ -440,6 +444,12 @@ export default function ChatPage() {
       if (error) throw error;
 
       if (data && data.length > 0) {
+        // Load local images cache
+        let localImages: Record<string, string> = {};
+        try {
+          localImages = JSON.parse(localStorage.getItem('vidyabot_doubt_images') || '{}');
+        } catch {}
+
         const mappedMessages: Message[] = [];
         data.forEach(d => {
           mappedMessages.push({
@@ -447,7 +457,8 @@ export default function ChatPage() {
             sender: 'student',
             text: d.question,
             timestamp: new Date(d.timestamp),
-            inputType: d.input_type as 'text' | 'photo' | 'voice'
+            inputType: d.input_type as 'text' | 'photo' | 'voice',
+            imageUrl: localImages[d.question] || undefined
           });
           mappedMessages.push({
             id: `${d.id}-a`,
@@ -487,7 +498,8 @@ export default function ChatPage() {
               sender: 'student',
               text: d.question,
               timestamp: new Date(d.timestamp),
-              inputType: d.input_type
+              inputType: d.input_type,
+              imageUrl: d.image_base_64
             });
             mappedMessages.push({
               id: `${d.id}-a`,
@@ -576,6 +588,16 @@ export default function ChatPage() {
     }
   };
 
+  // Helper to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   // 2. PHOTO DOUBT SUBMIT
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -583,12 +605,23 @@ export default function ChatPage() {
 
     e.target.value = '';
 
+    // Convert file to base64 for inline preview and local caching
+    let base64Data = '';
+    let localUrl = '';
+    try {
+      localUrl = URL.createObjectURL(file);
+      base64Data = await fileToBase64(file);
+    } catch (err) {
+      console.warn("Could not read image file:", err);
+    }
+
     const newStudentMsg: Message = {
       id: `photo-${Date.now()}-q`,
       sender: 'student',
       text: `📸 Photo Question: ${file.name}`,
       timestamp: new Date(),
-      inputType: 'photo'
+      inputType: 'photo',
+      imageUrl: base64Data || localUrl
     };
     setMessages(prev => [...prev, newStudentMsg]);
     setIsPhotoLoading(true);
@@ -638,8 +671,19 @@ export default function ChatPage() {
         }
       ]);
 
+      // Cache the image in localStorage mapped to the extracted question text
+      if (base64Data) {
+        try {
+          const localImages = JSON.parse(localStorage.getItem('vidyabot_doubt_images') || '{}');
+          localImages[data.extracted_question || 'Photo processed'] = base64Data;
+          localStorage.setItem('vidyabot_doubt_images', JSON.stringify(localImages));
+        } catch (cacheErr) {
+          console.warn('Failed to cache image locally:', cacheErr);
+        }
+      }
+
       if (user.id.startsWith('local-')) {
-        saveLocalDoubt(data.extracted_question || 'Photo processed', data.response, data.subject || 'Other', 'photo');
+        saveLocalDoubt(data.extracted_question || 'Photo processed', data.response, data.subject || 'Other', 'photo', base64Data);
       }
     } catch (err) {
       console.error(err);
@@ -1257,6 +1301,18 @@ export default function ChatPage() {
                   <div className="text-sm leading-relaxed whitespace-pre-wrap">
                     {formatMessageText(msg.text)}
                   </div>
+
+                  {/* Render inline image if present */}
+                  {msg.imageUrl && (
+                    <div className="mt-3 max-w-full overflow-hidden rounded-xl border border-[#415A77]/30 bg-[#0D1B2A]/50 p-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={msg.imageUrl}
+                        alt="Uploaded doubt question"
+                        className="max-h-64 w-auto object-contain rounded-lg shadow-md"
+                      />
+                    </div>
+                  )}
 
                   {/* Footer Actions */}
                   {!isStudent && (
