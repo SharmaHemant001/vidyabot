@@ -295,6 +295,63 @@ export default function ChatPage() {
       }
     } catch (err) {
       console.error('Failed to load chat history:', err);
+      
+      // Fallback: If it's the demo user (Rohan), populate a nice default chat doubt history
+      if (userId === '00000000-0000-0000-0000-000000000001') {
+        const mockHistory: Message[] = [
+          {
+            id: 'mock-1-q',
+            sender: 'student',
+            text: 'समरूप त्रिभुज (Similar Triangles) क्या होते हैं?',
+            timestamp: new Date(Date.now() - 172800000),
+            inputType: 'text'
+          },
+          {
+            id: 'mock-1-a',
+            sender: 'assistant',
+            text: '[SUBJECT: Maths]\nसमरूप त्रिभुज (Similar Triangles) वे त्रिभुज होते हैं जिनका आकार (shape) एक जैसा होता है, लेकिन उनका माप (size) अलग हो सकता है।\n\nइसे एक आसान उदाहरण से समझते हैं: जैसे एक ही व्यक्ति की दो तस्वीरें - एक पासपोर्ट साइज फोटो और एक बड़ी फोटो फ्रेम। दोनों में चेहरा बिल्कुल वैसा ही दिखेगा, लेकिन साइज अलग होगा।\n\nगणित में समरूपता के लिए दो बातें जरूरी हैं:\n1. संगत कोण (corresponding angles) बराबर होने चाहिए।\n2. संगत भुजाओं (corresponding sides) का अनुपात बराबर होना चाहिए।\n\nउम्मीद है यह स्पष्ट है! पढ़ते रहिए! 👍',
+            timestamp: new Date(Date.now() - 172800000),
+            inputType: 'text',
+            subject: 'Maths'
+          }
+        ];
+        setMessages(mockHistory);
+        console.log("Loaded default mock history for Rohan");
+        return;
+      }
+
+      // Try parsing from local doubts storage
+      try {
+        const localDoubts: LocalDoubt[] = JSON.parse(localStorage.getItem('local_doubts') || '[]');
+        const userDoubts = localDoubts.filter((d: LocalDoubt) => d.user_id === userId);
+        if (userDoubts.length > 0) {
+          const mappedMessages: Message[] = [];
+          userDoubts.forEach((d: LocalDoubt) => {
+            mappedMessages.push({
+              id: `${d.id}-q`,
+              sender: 'student',
+              text: d.question,
+              timestamp: new Date(d.timestamp),
+              inputType: d.input_type
+            });
+            mappedMessages.push({
+              id: `${d.id}-a`,
+              sender: 'assistant',
+              text: d.response,
+              timestamp: new Date(d.timestamp),
+              subject: d.subject,
+              inputType: d.input_type,
+              isReexplain: d.question.startsWith('Re-explain:')
+            });
+          });
+          setMessages(mappedMessages);
+          console.log("Loaded fallback local history for user:", userId);
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to load local fallback history:', e);
+      }
+
       showToast('Could not load history. Running in guest mode.');
     }
   };
@@ -861,28 +918,28 @@ export default function ChatPage() {
       )}
 
       {/* Top Navigation Bar */}
-      <header className="flex justify-between items-center px-4 py-3 bg-[#1B263B] border-b border-[#0D9488]/30 h-16 shrink-0 z-10">
-        <div className="flex items-center space-x-2.5">
+      <header className="flex justify-between items-center px-2 sm:px-4 py-3 bg-[#1B263B] border-b border-[#0D9488]/30 h-16 shrink-0 z-10">
+        <div className="flex items-center space-x-1.5 sm:space-x-2.5">
           <Link href="/" className="sm:hidden p-1 hover:bg-[#415A77]/20 rounded-lg min-h-[36px]">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <span className="text-2xl animate-pulse">🧠</span>
           <div>
-            <h1 className="text-lg font-black tracking-tight leading-none">
+            <h1 className="text-base sm:text-lg font-black tracking-tight leading-none">
               Vidya<span className="text-[#0D9488]">Bot</span>
             </h1>
             <p className="text-[10px] text-[#94A3B8] sm:block hidden uppercase tracking-wider font-semibold">AI Regional Tutor</p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2.5">
+        <div className="flex items-center space-x-1.5 sm:space-x-2.5">
           {/* Personalized greeting header */}
           <span className="text-xs font-semibold text-teal-400 sm:block hidden bg-teal-950/30 px-3 py-1.5 border border-[#0D9488]/20 rounded-lg">
             {getGreeting(user.name)}
           </span>
 
-          {/* Gamified XP Indicator */}
-          <span className="px-2.5 py-1 text-[10px] font-extrabold bg-amber-500/10 border border-amber-500/40 text-amber-500 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.2)]">
+          {/* Gamified XP Indicator - Hidden on mobile screen sizes to fit UI */}
+          <span className="hidden sm:inline-block px-2.5 py-1 text-[10px] font-extrabold bg-amber-500/10 border border-amber-500/40 text-amber-500 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.2)]">
             ⚡ {xp} XP
           </span>
 
@@ -896,10 +953,10 @@ export default function ChatPage() {
                 console.log("Language selected:", newLang);
                 updateUser({ language: newLang });
               }}
-              className="px-2.5 pr-6 py-1 text-[10px] font-bold bg-[#0D9488]/20 border border-[#0D9488]/40 text-[#0D9488] rounded-full focus:outline-none cursor-pointer appearance-none relative"
+              className="px-2 pr-5 py-1 text-[10px] font-bold bg-[#0D9488]/20 border border-[#0D9488]/40 text-[#0D9488] rounded-full focus:outline-none cursor-pointer appearance-none relative"
               style={{
                 backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%230D9488' d='M0 0l5 5 5-5z'/></svg>")`,
-                backgroundPosition: 'right 8px center',
+                backgroundPosition: 'right 6px center',
                 backgroundRepeat: 'no-repeat',
                 backgroundSize: '8px 5px'
               }}
@@ -914,18 +971,18 @@ export default function ChatPage() {
             </select>
           </div>
 
-          {/* Quiz Arena Button */}
+          {/* Quiz Arena Button - Hidden on mobile header, accessed from empty chat and dashboard */}
           <button
             onClick={startQuiz}
-            className="flex items-center space-x-1 px-3 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition min-h-[40px]"
+            className="hidden sm:inline-flex items-center space-x-1 px-3 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition min-h-[40px]"
           >
-            🎯 <span className="hidden sm:inline">Quick Quiz</span>
+            🎯 <span>Quick Quiz</span>
           </button>
 
           {/* Dashboard Link (Instant client routing) */}
           <button
             onClick={() => router.push('/dashboard')}
-            className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold bg-[#112F40] border border-[#0D9488]/30 text-[#0D9488] rounded-xl hover:bg-[#0D9488]/10 transition min-h-[40px]"
+            className="flex items-center space-x-1.5 px-2.5 py-2 text-xs font-semibold bg-[#112F40] border border-[#0D9488]/30 text-[#0D9488] rounded-xl hover:bg-[#0D9488]/10 transition min-h-[40px]"
           >
             <LayoutDashboard className="w-4 h-4" />
             <span className="hidden sm:inline">Dashboard</span>
@@ -935,7 +992,7 @@ export default function ChatPage() {
           <button
             onClick={handleLogout}
             title="Log Out"
-            className="p-2 text-slate-400 hover:text-red-400 bg-transparent hover:bg-red-500/10 rounded-xl transition min-h-[40px] min-w-[40px] flex items-center justify-center border border-transparent hover:border-red-500/20"
+            className="p-1.5 text-slate-400 hover:text-red-400 bg-transparent hover:bg-red-500/10 rounded-xl transition min-h-[40px] min-w-[40px] flex items-center justify-center border border-transparent hover:border-red-500/20"
           >
             <LogOut className="w-4.5 h-4.5" />
           </button>
@@ -957,6 +1014,15 @@ export default function ChatPage() {
             <p className="text-sm text-[#94A3B8] max-w-md leading-relaxed">
               I&apos;m your personal AI tutor. Ask me anything in Hindi, English, or your language. Snaps of textbook pages, typing, and voice recordings are all supported.
             </p>
+            
+            {/* Play Daily Quiz Button */}
+            <button
+              onClick={startQuiz}
+              type="button"
+              className="flex items-center justify-center space-x-2 px-6 py-3 w-full max-w-xs bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs rounded-xl transition shadow-lg shadow-amber-500/25 active:scale-[0.98] min-h-[44px]"
+            >
+              <span>🎯 Start Daily Quiz Arena</span>
+            </button>
             
             {/* Suggested starter doubts - 6 chips */}
             <div className="w-full pt-4 space-y-3">
@@ -1172,7 +1238,7 @@ export default function ChatPage() {
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder={placeholders[placeholderIndex]}
-            className="flex-grow px-4 py-3 bg-[#0D1B2A] border border-[#415A77] rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-[#0D9488] transition duration-200 min-h-[44px]"
+            className="flex-grow px-4 py-3 bg-[#0D1B2A] border border-[#415A77] rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-[#0D9488] transition duration-200 min-h-[44px] min-w-0"
           />
 
           <button
