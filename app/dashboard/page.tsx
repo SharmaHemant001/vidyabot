@@ -79,7 +79,7 @@ export default function DashboardPage() {
         return;
       }
       setUser(parsed);
-      loadDashboardData(parsed.id);
+      loadDashboardData(parsed.id, parsed.name);
       loadStudyTime(parsed.id);
     } catch {
       localStorage.removeItem('vidyabot_user');
@@ -110,7 +110,8 @@ export default function DashboardPage() {
     }
   };
 
-  const loadDashboardData = async (userId: string) => {
+  const loadDashboardData = async (userId: string, userName?: string) => {
+    const isRohan = userId === '00000000-0000-0000-0000-000000000001' || (userName && userName.toLowerCase() === 'rohan');
     try {
       setLoading(true);
       
@@ -223,6 +224,28 @@ export default function DashboardPage() {
         });
 
         setRecentDoubts(doubts.slice(0, 5));
+      } else if (isRohan) {
+        // Fallback data for Rohan if query returns no doubts
+        setDbXp(95);
+        setStats({
+          totalDoubts: 8,
+          activeSubject: 'Maths',
+          streak: 5
+        });
+        setChartData([
+          { name: 'Maths', doubts: 3 },
+          { name: 'Science', doubts: 2 },
+          { name: 'Social Studies', doubts: 2 },
+          { name: 'English', doubts: 1 },
+          { name: 'Other', doubts: 0 }
+        ]);
+        setRecentDoubts([
+          { id: '1', question: 'भारतीय संविधान की मुख्य विशेषताएं क्या हैं?', subject: 'Social Studies', timestamp: new Date().toISOString(), input_type: 'text' },
+          { id: '2', question: 'Please explain Active and Passive Voice with easy examples.', subject: 'English', timestamp: new Date(Date.now() - 3600000).toISOString(), input_type: 'text' },
+          { id: '3', question: 'न्यूटन का गति का तीसरा नियम क्या है?', subject: 'Science', timestamp: new Date(Date.now() - 86400000).toISOString(), input_type: 'voice' },
+          { id: '4', question: 'समरूप त्रिभुज (Similar Triangles) क्या होते हैं?', subject: 'Maths', timestamp: new Date(Date.now() - 172800000).toISOString(), input_type: 'text' },
+          { id: '5', question: 'प्रकाश संश्लेषण की प्रक्रिया को आसान शब्दों में समझाएं।', subject: 'Science', timestamp: new Date(Date.now() - 172800000).toISOString(), input_type: 'photo' }
+        ]);
       } else {
         // Fallback or empty state (if it's a brand new user)
         setRecentDoubts([]);
@@ -245,7 +268,7 @@ export default function DashboardPage() {
       console.warn('Could not query dynamic dashboard, checking fallback mode:', errMsg);
       
       // Fallback data for Rohan if Supabase connection fails
-      if (userId === '00000000-0000-0000-0000-000000000001') {
+      if (isRohan) {
         setDbXp(95);
         setStats({
           totalDoubts: 8,

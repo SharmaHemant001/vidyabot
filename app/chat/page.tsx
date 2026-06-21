@@ -35,6 +35,24 @@ interface LocalSession {
   doubt_count: number;
 }
 
+const getRohanMockHistory = (): Message[] => [
+  {
+    id: 'mock-1-q',
+    sender: 'student',
+    text: 'समरूप त्रिभुज (Similar Triangles) क्या होते हैं?',
+    timestamp: new Date(Date.now() - 172800000),
+    inputType: 'text'
+  },
+  {
+    id: 'mock-1-a',
+    sender: 'assistant',
+    text: '[SUBJECT: Maths]\nसमरूप त्रिभुज (Similar Triangles) वे त्रिभुज होते हैं जिनका आकार (shape) एक जैसा होता है, लेकिन उनका माप (size) अलग हो सकता है।\n\nइसे एक आसान उदाहरण से समझते हैं: जैसे एक ही व्यक्ति की दो तस्वीरें - एक पासपोर्ट साइज फोटो और एक बड़ी फोटो फ्रेम। दोनों में चेहरा बिल्कुल वैसा ही दिखेगा, लेकिन साइज अलग होगा।\n\nगणित में समरूपता के लिए दो बातें जरूरी हैं:\n1. संगत कोण (corresponding angles) बराबर होने चाहिए।\n2. संगत भुजाओं (corresponding sides) का अनुपात बराबर होना चाहिए।\n\nउम्मीद है यह स्पष्ट है! पढ़ते रहिए! 👍',
+    timestamp: new Date(Date.now() - 172800000),
+    inputType: 'text',
+    subject: 'Maths'
+  }
+];
+
 export default function ChatPage() {
   const router = useRouter();
   const { user: contextUser, xp, addXp, logout, updateUser } = useUser();
@@ -176,7 +194,7 @@ export default function ChatPage() {
         return;
       }
       setUser(parsed);
-      fetchChatHistory(parsed.id);
+      fetchChatHistory(parsed.id, parsed.name);
     } catch {
       localStorage.removeItem('vidyabot_user');
       router.replace('/login');
@@ -232,8 +250,10 @@ export default function ChatPage() {
   };
 
   // Fetch student's doubt history from database
-  const fetchChatHistory = async (userId: string) => {
-    if (userId.startsWith('local-')) {
+  const fetchChatHistory = async (userId: string, userName?: string) => {
+    const isRohan = userId === '00000000-0000-0000-0000-000000000001' || (userName && userName.toLowerCase() === 'rohan');
+
+    if (userId.startsWith('local-') && !isRohan) {
       try {
         const localDoubts: LocalDoubt[] = JSON.parse(localStorage.getItem('local_doubts') || '[]');
         const userDoubts = localDoubts.filter((d: LocalDoubt) => d.user_id === userId);
@@ -262,6 +282,7 @@ export default function ChatPage() {
       }
       return;
     }
+
     try {
       const { data, error } = await supabase
         .from('doubts')
@@ -292,31 +313,18 @@ export default function ChatPage() {
           });
         });
         setMessages(mappedMessages);
+      } else if (isRohan) {
+        // Seed default history for Rohan if database query succeeded but returned no doubts
+        setMessages(getRohanMockHistory());
+        console.log("Loaded default mock history for Rohan (no DB records found)");
       }
     } catch (err) {
       console.error('Failed to load chat history:', err);
       
       // Fallback: If it's the demo user (Rohan), populate a nice default chat doubt history
-      if (userId === '00000000-0000-0000-0000-000000000001') {
-        const mockHistory: Message[] = [
-          {
-            id: 'mock-1-q',
-            sender: 'student',
-            text: 'समरूप त्रिभुज (Similar Triangles) क्या होते हैं?',
-            timestamp: new Date(Date.now() - 172800000),
-            inputType: 'text'
-          },
-          {
-            id: 'mock-1-a',
-            sender: 'assistant',
-            text: '[SUBJECT: Maths]\nसमरूप त्रिभुज (Similar Triangles) वे त्रिभुज होते हैं जिनका आकार (shape) एक जैसा होता है, लेकिन उनका माप (size) अलग हो सकता है।\n\nइसे एक आसान उदाहरण से समझते हैं: जैसे एक ही व्यक्ति की दो तस्वीरें - एक पासपोर्ट साइज फोटो और एक बड़ी फोटो फ्रेम। दोनों में चेहरा बिल्कुल वैसा ही दिखेगा, लेकिन साइज अलग होगा।\n\nगणित में समरूपता के लिए दो बातें जरूरी हैं:\n1. संगत कोण (corresponding angles) बराबर होने चाहिए।\n2. संगत भुजाओं (corresponding sides) का अनुपात बराबर होना चाहिए।\n\nउम्मीद है यह स्पष्ट है! पढ़ते रहिए! 👍',
-            timestamp: new Date(Date.now() - 172800000),
-            inputType: 'text',
-            subject: 'Maths'
-          }
-        ];
-        setMessages(mockHistory);
-        console.log("Loaded default mock history for Rohan");
+      if (isRohan) {
+        setMessages(getRohanMockHistory());
+        console.log("Loaded default mock history for Rohan (DB error fallback)");
         return;
       }
 
@@ -351,8 +359,6 @@ export default function ChatPage() {
       } catch (e) {
         console.error('Failed to load local fallback history:', e);
       }
-
-      showToast('Could not load history. Running in guest mode.');
     }
   };
 
