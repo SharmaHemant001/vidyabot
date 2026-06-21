@@ -53,6 +53,153 @@ const getRohanMockHistory = (): Message[] => [
   }
 ];
 
+const mathToHtml = (text: string): string => {
+  let html = text;
+
+  // Replace LaTeX symbols
+  const replacements: [RegExp, string][] = [
+    [/\\theta/g, 'θ'],
+    [/\\sin/g, 'sin'],
+    [/\\cos/g, 'cos'],
+    [/\\tan/g, 'tan'],
+    [/\\times/g, '×'],
+    [/\\cdot/g, '·'],
+    [/\\alpha/g, 'α'],
+    [/\\beta/g, 'β'],
+    [/\\gamma/g, 'γ'],
+    [/\\delta/g, 'δ'],
+    [/\\pi/g, 'π'],
+    [/\\pm/g, '±'],
+    [/\\le/g, '≤'],
+    [/\\ge/g, '≥'],
+    [/\\neq/g, '≠'],
+    [/\\infty/g, '∞'],
+    [/\\approx/g, '≈'],
+    [/\\to/g, '→'],
+    [/\\Delta/g, 'Δ'],
+    [/\\lambda/g, 'λ'],
+    [/\\partial/g, '∂'],
+    [/\\nabla/g, '∇'],
+    [/\\angle/g, '∠'],
+    [/\\degree/g, '°'],
+  ];
+
+  for (const [regex, replacement] of replacements) {
+    html = html.replace(regex, replacement);
+  }
+
+  // Handle matrices/determinants
+  // \begin{vmatrix} a & b \\ c & d \end{vmatrix}
+  let prevHtml = '';
+  while (html !== prevHtml) {
+    prevHtml = html;
+    html = html.replace(/\\begin\{vmatrix\}([\s\S]*?)\\end\{vmatrix\}/g, (match, content: string) => {
+      const rows = content.trim().split(/\\\\/);
+      const rowHtml = rows.map(row => {
+        if (!row.trim()) return '';
+        const cells = row.trim().split('&');
+        const cellHtml = cells.map(cell => `<td class="px-3 py-1.5 text-center whitespace-nowrap">${cell.trim()}</td>`).join('');
+        return `<tr>${cellHtml}</tr>`;
+      }).filter(Boolean).join('');
+      return `<table class="inline-table border-l border-r border-slate-400 mx-2 align-middle text-center my-1 bg-teal-950/20"><tbody>${rowHtml}</tbody></table>`;
+    });
+
+    html = html.replace(/\\begin\{pmatrix\}([\s\S]*?)\\end\{pmatrix\}/g, (match, content: string) => {
+      const rows = content.trim().split(/\\\\/);
+      const rowHtml = rows.map(row => {
+        if (!row.trim()) return '';
+        const cells = row.trim().split('&');
+        const cellHtml = cells.map(cell => `<td class="px-3 py-1.5 text-center whitespace-nowrap">${cell.trim()}</td>`).join('');
+        return `<tr>${cellHtml}</tr>`;
+      }).filter(Boolean).join('');
+      return `<table class="inline-table border-l border-r border-slate-400 rounded-lg mx-2 align-middle text-center my-1 bg-teal-950/20"><tbody>${rowHtml}</tbody></table>`;
+    });
+  }
+
+  // Handle fractions \frac{a}{b} -> (a)/(b) or stacked
+  prevHtml = '';
+  while (html !== prevHtml) {
+    prevHtml = html;
+    html = html.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '<span class="inline-flex flex-col align-middle text-center mx-1"><span class="border-b border-current px-0.5">$1</span><span class="text-[10px] px-0.5">$2</span></span>');
+  }
+
+  // Handle square roots \sqrt{a} -> √a
+  prevHtml = '';
+  while (html !== prevHtml) {
+    prevHtml = html;
+    html = html.replace(/\\sqrt\{([^{}]+)\}/g, '<span class="inline-block"><span class="border-t border-current">√</span>$1</span>');
+  }
+  html = html.replace(/\\sqrt/g, '√');
+
+  // Handle superscripts ^{content} and ^char
+  prevHtml = '';
+  while (html !== prevHtml) {
+    prevHtml = html;
+    html = html.replace(/([a-zA-Z0-9θiknxy)])\^\{([^}]+)\}/g, '$1<sup>$2</sup>');
+  }
+  html = html.replace(/([a-zA-Z0-9θiknxy)])\^([a-zA-Z0-9\-+θ])/g, '$1<sup>$2</sup>');
+
+  // Handle subscripts _{content} and _char
+  prevHtml = '';
+  while (html !== prevHtml) {
+    prevHtml = html;
+    html = html.replace(/([a-zA-Z0-9θiknxy)])_\{([^}]+)\}/g, '$1<sub>$2</sub>');
+  }
+  html = html.replace(/([a-zA-Z0-9θiknxy)])_([a-zA-Z0-9\-+θ])/g, '$1<sub>$2</sub>');
+
+  return html;
+};
+
+const formatMessageText = (text: string): React.ReactNode[] => {
+  if (!text) return [];
+
+  // Remove the subject marker if present
+  let cleanText = text;
+  if (text.startsWith('[SUBJECT:')) {
+    const lines = text.split('\n');
+    cleanText = lines.slice(1).join('\n');
+  }
+
+  // Split by math delimiters: $$ (block) and $ (inline)
+  const parts = cleanText.split(/(\$\$[\s\S]+?\$\$|\$[^\$]+?\$)/g);
+
+  return parts.map((part, index) => {
+    if (part.startsWith('$$') && part.endsWith('$$')) {
+      const mathContent = part.slice(2, -2).trim();
+      const html = mathToHtml(mathContent);
+      return (
+        <div
+          key={index}
+          className="w-full text-center my-4 overflow-x-auto py-1.5"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      );
+    } else if (part.startsWith('$') && part.endsWith('$')) {
+      const mathContent = part.slice(1, -1).trim();
+      const html = mathToHtml(mathContent);
+      return (
+        <span
+          key={index}
+          className="inline-block align-middle mx-1"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      );
+    } else {
+      // Normal text part: handle markdown bold **text** and newlines
+      const boldParts = part.split(/(\*\*[\s\S]+?\*\*)/g);
+      
+      const elements = boldParts.map((bPart, bIndex) => {
+        if (bPart.startsWith('**') && bPart.endsWith('**')) {
+          return <strong key={bIndex} className="font-extrabold text-white">{bPart.slice(2, -2)}</strong>;
+        }
+        return bPart;
+      });
+
+      return <span key={index}>{elements}</span>;
+    }
+  });
+};
+
 export default function ChatPage() {
   const router = useRouter();
   const { user: contextUser, xp, addXp, logout, updateUser } = useUser();
@@ -1107,7 +1254,9 @@ export default function ChatPage() {
                   )}
 
                   {/* Message Content */}
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {formatMessageText(msg.text)}
+                  </div>
 
                   {/* Footer Actions */}
                   {!isStudent && (
