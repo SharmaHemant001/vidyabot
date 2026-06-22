@@ -123,6 +123,8 @@ We verified compilation by running `npm run build`:
 - **Fixes Applied**:
   - **Exposed API Errors**: Modified `/api/photo-doubt`, `/api/text-doubt`, `/api/re-explain`, and `/api/parent-summary` catch blocks to return the actual `error.message` in the JSON response, making diagnostic/quota errors fully visible in frontend toast notifications.
   - **Robust Model Fallbacks**: Added automatic fallback to the stable `gemini-flash-latest` model in case the primary `gemini-2.5-flash` model fails or runs out of daily/minute rate-limits. This ensures 100% uptime for all AI tutoring, OCR, and report generation services even under heavy usage.
+  - **Exponential Backoff Retry Wrapper**: Created a dedicated [`lib/gemini.ts`](file:///C:/Users/Asus/Desktop/vidyabot/lib/gemini.ts) helper utility to encapsulate all Gemini API interactions. In addition to fallback logic, it implements automatic **exponential backoff retries** when transient `429 Too Many Requests` (Quota exceeded) errors are returned, giving the client multiple attempts to complete the request before giving up.
+
 
 
 
