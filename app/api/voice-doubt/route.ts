@@ -184,8 +184,8 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
     let audioBase64 = null;
     if (elevenLabsKey) {
       try {
-        // Rachel voice ID: 21m00Tcm4TlvDq8ikWAM (supports multilingual)
-        const voiceId = "21m00Tcm4TlvDq8ikWAM";
+        // Bella voice ID: EXAVITQu4vr4xnSDxMaL (supports multilingual, working on free tier)
+        const voiceId = "EXAVITQu4vr4xnSDxMaL";
         const ttsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
         
         const ttsResponse = await fetch(ttsUrl, {

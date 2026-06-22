@@ -58,3 +58,11 @@ We verified compilation by running `npm run build`:
 ```
 **Status**: 0 lint errors, 0 compilation warnings.
 **Pushed to**: `https://github.com/SharmaHemant001/vidyabot.git` (main branch)
+
+---
+
+## 🎤 Voice Doubt Synthesis Fix (ElevenLabs Free Tier compatibility)
+
+- **Issue**: Voice responses returned only text and did not play audio, failing with ElevenLabs status `402 Payment Required` (code: `paid_plan_required`). This occurred because the code requested voice ID `21m00Tcm4TlvDq8ikWAM` (Rachel), which ElevenLabs now restricts to paid tiers when used via their API.
+- **Fix**: Updated [route.ts](file:///C:/Users/Asus/Desktop/vidyabot/app/api/voice-doubt/route.ts#L188) and the local ElevenLabs test script [test-elevenlabs.js](file:///C:/Users/Asus/Desktop/vidyabot/scripts/test-elevenlabs.js#L30) to use Bella's voice ID (`EXAVITQu4vr4xnSDxMaL`), which is fully supported and functional on the free tier.
+- **Verification**: Verified using `node scripts/test-elevenlabs.js` which now successfully yields `200 OK` (audio generated), and verified the project compiles cleanly using `npm run build`.
