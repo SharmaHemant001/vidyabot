@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
-
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveDoubtAndIncrementSession } from '@/lib/db-helpers';
 import { sendMessageWithRetryAndFallback } from '@/lib/gemini';
@@ -14,6 +13,7 @@ export async function POST(request: Request) {
     const subject = body.subject;
     const user_id = body.user_id || body.userId;
     const class_level = body.class_level || body.classLevel;
+    const inputType = body.inputType || 'text';
 
     console.log("Language received:", language);
     console.log("Language passed to Gemini:", language);
@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     }
 
     const geminiKey = process.env.GEMINI_API_KEY;
+    const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
     if (!geminiKey) {
       throw new Error("GEMINI_API_KEY is not defined in environment variables");
     }
@@ -75,21 +76,21 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
       marathi: "मला हे स्पष्टीकरण समजले नाही. कृपया दुसऱ्या नवीन उदाहरणासह पुन्हा समजावून सांगा.",
       tamil: "எனக்கு இந்த விளக்கம் புரியவில்லை. தயவுசெய்து வேறு ஒரு புதிய உதாரணத்துடன் மீண்டும் விளக்கவும்.",
       urdu: "مجھے یہ وضاحت سمجھ نہیں آئی۔ براہ کرم بالکل مختلف مثال یا تشبیہ کا استعمال کرتے ہوئے دوبارہ وضاحت کریں۔",
-      gujarati: "મને આ સમજૂતી સમજાઈ નથી. કૃપા કરીને સંપૂર્ણપણે અલગ ઉદાહरण અથવા સામ્યતાનો ઉપયોગ કરીને ફરીથી સમજાવો.",
-      kannada: "ನನಗೆ ಈ ವಿವರಣೆ ಅರ್ಥವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಂದು ಹೊಸ ಉದಾಹರಣೆಯೊಂದಿಗೆ ಮತ್ತೆ ವಿವರಿಸಿ.",
-      odia: "ମୁଁ ଏହି ବ୍ୟାଖ୍ୟา ବୁଝିପାରିଲି ନାହିଁ | ଦୟାକରି ଏକ ସମ୍ପୂର୍ଣ୍ଣ ଭିନ୍ನ ଉଦାହରଣ ବ୍ୟବହାର କରି ପୁଣି ବୁଝାନ୍ତុ |",
-      punjabi: "ਮੈਨੂੰ ਇਹ ਵਿਆਖਿਆ ਸਮਝ ਨਹੀਂ ਆਈ। ਕਿਰਪา ਕਰਕੇ ਇੱਕ ਵੱਖਰੀ ਮਿਸਾਲ ਦੀ ਵਰਤੋਂ ਕਰਕੇ ਦੁਬਾਰਾ ਸਮਝਾਓ।",
+      gujarati: "મને આ સમજૂતી સમજાઈ નથી. કૃપા કરીને સંપૂર્ણપણે અલગ ઉદાહરણ અથવા સામ્યતાનો ઉપયોગ કરીને ફરીથી સમજાવો.",
+      kannada: "ನನಗೆ ಈ ವಿವರಣೆ ಅರ್ಥವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಂದು ಹೊಸ ಉದಾಹರಣೆಯೊಂದಿಗೆ ಮತ್ತೆ விವರಿಸಿ.",
+      odia: "ମୁଁ ଏହି ବ୍ୟାଖ୍ୟา ବୁଝିପାରିଲି ନାହିଁ | ଦୟାକରି ଏକ ସମ୍ପୂର୍ଣ୍ଣ ଭିନ୍ນ ଉଦାହରଣ ବ୍ୟବହାର କରି ପୁଣି ବୁଝାନ୍ତୁ |",
+      punjabi: "ਮੈਨੂੰ ਇਹ ਵਿਆਖਿਆ ਸਮਝ ਨਹੀਂ ਆਈ। ਕਿਰਪਾ ਕਰਕੇ ਇੱਕ ਵੱਖਰੀ ਮਿਸਾਲ ਦੀ ਵਰਤੋਂ ਕਰਕੇ ਦੁਬਾਰਾ ਸਮਝਾਓ।",
       malayalam: "എനിക്ക് ഈ വിശദീകരണം മനസ്സിലായില്ല. ദയവായി മറ്റൊരു പുതിയ ഉദാഹരണം ഉപയോഗിച്ച് വീണ്ടും വിശദീകരിക്കുക.",
       assamese: "মই এই ব্যাখ্যাটো বুজি নাপালোঁ। অনুগ্ৰহ কৰি এটা সম্পূৰ্ণ বেলেগ উদাহৰণ ব্যৱহাৰ কৰি আকৌ বুজাই দিয়ক।",
       maithili: "हमरा ई बात नै बुझायल। कृपा कऽ कोनो दोसर अलग उदाहरण दैत पुनः समझाउ।",
-      santali: "ᱤᱧ ᱫᱚ ᱱᱚᱣᱟ ᱵᱷᱟᱜᱮ ᱛᱮ ᱵᱟᱹᱧ ᱵᱩᱡᱷᱟᱹᱣ ᱞᱮᱫᱟ ᱾ ᱫᱟᱭᱟ ᱠᱟᱛᱮ ᱮᱴᱟᱜ ᱞᱮᱠᱟᱱ ᱥᱟᱹᱫᱷᱟᱹᱨᱚᱱ ᱛե ᱟᱨᱦۆᱸ ᱵᱩᱡᱷᱟᱹᱣ ᱤᱧ ᱢᱮ ᱾",
-      kashmiri: "ميٚہ آو نَہ ييٚہ وَضاحَت سَمجھ۔ مَہرَبٲنی کٔرِتھ وَضاحَت کَرِو پَتہِ کُنہِ بیٚیہِ مِثالہِ سِت।",
+      santali: "ᱤᱧ ᱫᱚ ᱱᱚᱣᱟ ᱵᱷᱟᱜᱮ ᱛե ᱵᱟᱹᱧ ᱵᱩᱡᱷᱟᱹᱣ ᱞᱮᱫᱟ ᱾ ᱫᱟᱭᱟ ᱠᱟᱛᱮ ᱮᱴᱟᱜ ᱞᱮᱠᱟᱱ ᱥᱟᱹᱫᱷᱟᱹᱨᱚᱱ ᱛե ᱟᱨᱦۆᱸ ᱵᱩᱡᱷᱟᱹᱣ ᱤᱧ ᱢᱮ ᱾",
+      kashmiri: "ميٚہ آو نَہ ييٚہ وَضاحَت سَمجھ۔ مَہرَبٲنی کٔرِتھ وَضاحَت کَرِو پَتہِ کُنہِ بیٚیہِ مِثالہِ سِত।",
       nepali: "मैले यो स्पष्टीकरण बुझिनँ। कृपया अर्को बिल्कुलै फरक उदाहरण प्रयोग गरेर फेरि सम्झाउनुहोस्।",
       sindhi: "مون کي هي وضاحت سمجهه ۾ نه آئي. مهرباني ڪري هڪ مختلف مثال استعمال ڪندي ٻيهر وضاحت ڪريو.",
       konkani: "म्हाका हें स्पष्टीकरण समजलें ना. कृपा करून एका वेगळ्या उदाहरणाचो उपेग करून परत समजावन सांगात.",
-      dogri: "गी ऐ समझ नी आया। कृपा करiyai कोई बक्खरा उदाहरण देइयै परत समझायो।",
-      manipuri: "ঐহাক্না ৱারোল অসি খঙদে। অন্য অতোপ্পা খুদম অমগা লোয়ননা অমুক্তা অমুক হন্না তাকপীয়ু।",
-      bodo: "आं बे बियाखौ बुजियाखिसै। अननानै गुबुन मोनসে बिदिनथि होनानै फिन बुजायफिन।"
+      dogri: "गी ऐ समझ नी आया। कृपा करियै कोई बक्खरा उदाहरण देइयै परत समझायो।",
+      manipuri: "ঐহাক্না ৱারোল অসি খঙদে। অন্য অতোপ্পা খুदम অমগা লোয়ননা অমুক্তা অমुक হন্না তাকপীয়ু।",
+      bodo: "आं बे बियाखौ बुजियाखिसै। अननानै गुबुन मोनसे बिदिनथि होनानै फिन बुजायफिन।"
     };
 
     const langLower = language.toLowerCase();
@@ -121,17 +122,52 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
 
     const cleanResponse = responseText.replace(/\[SUBJECT:\s*[^\]\n]+\]\n?/i, '').trim();
 
+    // 3. Generate Audio via ElevenLabs (optional, handles error gracefully)
+    let audioBase64 = null;
+    if (inputType === 'voice' && elevenLabsKey) {
+      try {
+        const voiceId = "EXAVITQu4vr4xnSDxMaL";
+        const ttsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+        const ttsResponse = await fetch(ttsUrl, {
+          method: 'POST',
+          headers: {
+            'xi-api-key': elevenLabsKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text: cleanResponse,
+            model_id: "eleven_multilingual_v2",
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75
+            }
+          })
+        });
+
+        if (ttsResponse.ok) {
+          const ttsArrayBuffer = await ttsResponse.arrayBuffer();
+          const ttsBuffer = Buffer.from(ttsArrayBuffer);
+          audioBase64 = ttsBuffer.toString('base64');
+        } else {
+          console.warn("ElevenLabs returned non-ok status for re-explain:", ttsResponse.status, ttsResponse.statusText);
+        }
+      } catch (ttsError) {
+        console.error("ElevenLabs speech synthesis error for re-explain:", ttsError);
+      }
+    }
+
     // Save this re-explanation to doubts history so dashboard counts are accurate
     await saveDoubtAndIncrementSession({
       userId: user_id,
       question: `Re-explain: ${original_question}`,
       subject: subject || 'Other',
       response: cleanResponse,
-      inputType: 'text'
+      inputType: inputType
     });
 
     return NextResponse.json({
-      response: cleanResponse
+      response: cleanResponse,
+      audio_base_64: audioBase64
     }, { status: 200 });
 
   } catch (error) {

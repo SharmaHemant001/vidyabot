@@ -1036,7 +1036,8 @@ export default function ChatPage() {
           class_level: user.class_level,
           classLevel: user.class_level,
           language: user.language,
-          subject: originalMsg.subject
+          subject: originalMsg.subject,
+          inputType: originalMsg.inputType
         })
       });
 
@@ -1046,21 +1047,45 @@ export default function ChatPage() {
         showToast(data.error);
       }
 
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `reexplain-${Date.now()}-a`,
-          sender: 'assistant',
-          text: data.response,
-          timestamp: new Date(),
-          subject: originalMsg.subject || 'Other',
-          inputType: originalMsg.inputType,
-          isReexplain: true
-        }
-      ]);
+      const newAssistantMsg: Message = {
+        id: `reexplain-${Date.now()}-a`,
+        sender: 'assistant',
+        text: data.response,
+        timestamp: new Date(),
+        subject: originalMsg.subject || 'Other',
+        inputType: originalMsg.inputType,
+        audioBase64: data.audio_base_64 || undefined,
+        isReexplain: true
+      };
+
+      setMessages(prev => [...prev, newAssistantMsg]);
 
       if (user.id.startsWith('local-')) {
         saveLocalDoubt(`Re-explain: ${studentQuestion}`, data.response, originalMsg.subject || 'Other', originalMsg.inputType || 'text');
+      }
+
+      if (data.audio_base_64) {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.onended = null;
+          audioRef.current.onpause = null;
+        }
+
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio_base_64}`);
+        audioRef.current = audio;
+        setPlayingMessageId(newAssistantMsg.id);
+
+        audio.onended = () => {
+          setPlayingMessageId(null);
+        };
+        audio.onpause = () => {
+          setPlayingMessageId(null);
+        };
+
+        audio.play().catch(e => {
+          console.warn('Autoplay blocked by browser:', e);
+          setPlayingMessageId(null);
+        });
       }
     } catch (err) {
       console.error(err);
