@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveDoubtAndIncrementSession } from '@/lib/db-helpers';
+import { generateContentWithRetryAndFallback } from '@/lib/gemini';
 
 export async function POST(request: Request) {
   try {
@@ -99,15 +100,14 @@ export async function POST(request: Request) {
       console.log("Skipping OpenAI Whisper because OPENAI_API_KEY is not defined.");
     }
 
-    // 1b. Free Tier Fallback: Transcribe natively via Gemini 2.5 Flash if Whisper failed or was skipped
+    // 1b. Free Tier Fallback: Transcribe natively via Gemini if Whisper failed or was skipped
     if (!transcript && geminiKey) {
-      console.log("Using Gemini 2.5 Flash for audio transcription (Free Tier)...");
+      console.log("Using Gemini for audio transcription (Free Tier)...");
       try {
         const genAI = new GoogleGenerativeAI(geminiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const mimeType = audioFile.type || 'audio/webm';
         
-        const result = await model.generateContent([
+        const promptParts = [
           {
             inlineData: {
               data: buffer.toString('base64'),
@@ -115,9 +115,10 @@ export async function POST(request: Request) {
             }
           },
           "You are an expert audio transcription assistant. Listen to this student's recorded audio and write down the exact words spoken, in their original language. Output ONLY the exact transcription, with no extra tags, greetings, or explanations."
-        ]);
+        ];
         
-        transcript = (result.response.text() || "").trim();
+        const txResult = await generateContentWithRetryAndFallback(genAI, promptParts);
+        transcript = (txResult.text || "").trim();
         console.log("Gemini Transcript:", transcript);
       } catch (geminiTxError) {
         console.error("Gemini audio transcription error:", geminiTxError);
@@ -168,32 +169,26 @@ RE-EXPLAIN MODE: If the student says anything like "samajh nahi aaya", "didn't u
 
 TONE: Warm, patient, never condescending. You are the best teacher the student has ever had.`;
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: systemPrompt,
-    });
-
-    let activeModel = model;
     let responseText = "";
+    let activeModelUsed = "gemini-2.5-flash";
     try {
-      const result = await model.generateContent(transcript);
-      responseText = result.response.text() || '';
+      const explainResult = await generateContentWithRetryAndFallback(genAI, transcript, { systemPrompt });
+      responseText = explainResult.text || '';
+      activeModelUsed = explainResult.modelUsed;
     } catch (genError) {
-      console.warn("Primary model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", genError);
-      const fallbackModel = genAI.getGenerativeModel({
-        model: "gemini-flash-latest",
-        systemInstruction: systemPrompt,
-      });
-      activeModel = fallbackModel;
-      const result = await fallbackModel.generateContent(transcript);
-      responseText = result.response.text() || '';
+      console.error("Gemini explanation error:", genError);
+      throw genError;
     }
 
     // Response Validation (Requirement 6)
     if (language === "English" && /[\u0900-\u097F]/.test(responseText)) {
       console.log("Validation Failed (Voice doubt): Hindi character detected in English response. Regenerating...");
       try {
-        const strictResult = await activeModel.generateContent(
+        const strictModel = genAI.getGenerativeModel({
+          model: activeModelUsed,
+          systemInstruction: systemPrompt
+        });
+        const strictResult = await strictModel.generateContent(
           `${transcript}\n\n[SYSTEM NOTE: Your previous answer contained Hindi characters. You must respond ONLY in English. Do not use Hindi script or words.]`
         );
         responseText = strictResult.response.text() || responseText;
@@ -270,7 +265,7 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
     return NextResponse.json({
       transcript,
       response: cleanResponse,
-      audio_base64: audioBase64,
+      audio_base_64: audioBase64,
       subject
     }, { status: 200 });
 

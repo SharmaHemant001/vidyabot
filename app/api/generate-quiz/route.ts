@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateContentWithRetryAndFallback } from '@/lib/gemini';
 
 export async function POST(request: Request) {
   try {
@@ -32,16 +33,21 @@ export async function POST(request: Request) {
     
     Note: The "correct" value must be the EXACT string match of one of the items inside the "options" array.`;
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: systemPrompt,
-      generationConfig: {
-        responseMimeType: "application/json",
-      }
-    });
-
-    const result = await model.generateContent("Generate 3 multiple choice questions now.");
-    const responseText = result.response.text() || '[]';
+    let responseText = "[]";
+    try {
+      const quizResult = await generateContentWithRetryAndFallback(
+        genAI,
+        "Generate 3 multiple choice questions now.",
+        {
+          systemPrompt,
+          responseMimeType: "application/json"
+        }
+      );
+      responseText = quizResult.text || '[]';
+    } catch (genError) {
+      console.error("Gemini quiz generation error:", genError);
+      throw genError;
+    }
 
     // Parse the generated JSON to verify format
     const parsedQuiz = JSON.parse(responseText.trim());

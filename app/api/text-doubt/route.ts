@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveDoubtAndIncrementSession } from '@/lib/db-helpers';
+import { generateContentWithRetryAndFallback } from '@/lib/gemini';
 
 export async function POST(request: Request) {
   try {
@@ -52,32 +53,26 @@ RE-EXPLAIN MODE: If the student says anything like "samajh nahi aaya", "didn't u
 
 TONE: Warm, patient, never condescending. You are the best teacher the student has ever had.`;
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: systemPrompt,
-    });
-
-    let activeModel = model;
     let responseText = "";
+    let activeModelUsed = "gemini-2.5-flash";
     try {
-      const result = await model.generateContent(question);
-      responseText = result.response.text() || '';
+      const explainResult = await generateContentWithRetryAndFallback(genAI, question, { systemPrompt });
+      responseText = explainResult.text || '';
+      activeModelUsed = explainResult.modelUsed;
     } catch (genError) {
-      console.warn("Primary model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", genError);
-      const fallbackModel = genAI.getGenerativeModel({
-        model: "gemini-flash-latest",
-        systemInstruction: systemPrompt,
-      });
-      activeModel = fallbackModel;
-      const result = await fallbackModel.generateContent(question);
-      responseText = result.response.text() || '';
+      console.error("Gemini explanation error:", genError);
+      throw genError;
     }
 
     // Response Validation (Requirement 6)
     if (language === "English" && /[\u0900-\u097F]/.test(responseText)) {
       console.log("Validation Failed: Hindi character detected in English response. Regenerating...");
       try {
-        const strictResult = await activeModel.generateContent(
+        const strictModel = genAI.getGenerativeModel({
+          model: activeModelUsed,
+          systemInstruction: systemPrompt
+        });
+        const strictResult = await strictModel.generateContent(
           `${question}\n\n[SYSTEM NOTE: Your previous answer contained Hindi characters. You must respond ONLY in English. Do not use Hindi script or words.]`
         );
         responseText = strictResult.response.text() || responseText;

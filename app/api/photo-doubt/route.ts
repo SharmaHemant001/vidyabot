@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveDoubtAndIncrementSession } from '@/lib/db-helpers';
+import { generateContentWithRetryAndFallback } from '@/lib/gemini';
 
 export async function POST(request: Request) {
   try {
@@ -31,29 +32,21 @@ export async function POST(request: Request) {
     const imagePart = {
       inlineData: {
         data: buffer.toString('base64'),
-        mimeType: imageFile.type
+        mimeType: imageFile.type || 'image/jpeg'
       }
     };
 
-    // 2. Call Gemini 2.5 Flash to perform OCR and extract the academic question
+    // 2. Call Gemini OCR to extract the academic question
     const genAI = new GoogleGenerativeAI(geminiKey);
-    const geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const geminiPrompt = "Extract the written academic question or text from this image. Only return the extracted question text as is, without adding extra words, greetings, or formatting.";
     
     let extractedQuestion = "";
     try {
-      const geminiResult = await geminiModel.generateContent([geminiPrompt, imagePart]);
-      extractedQuestion = geminiResult.response.text().trim();
+      const ocrResult = await generateContentWithRetryAndFallback(genAI, [geminiPrompt, imagePart]);
+      extractedQuestion = ocrResult.text.trim();
     } catch (ocrError) {
-      console.warn("Primary OCR model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", ocrError);
-      try {
-        const fallbackOcrModel = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
-        const geminiResult = await fallbackOcrModel.generateContent([geminiPrompt, imagePart]);
-        extractedQuestion = geminiResult.response.text().trim();
-      } catch (fallbackOcrError) {
-        console.error("Gemini OCR fallback error:", fallbackOcrError);
-        extractedQuestion = "Could not extract question from photo.";
-      }
+      console.error("Gemini OCR error:", ocrError);
+      extractedQuestion = "Could not extract question from photo.";
     }
 
     if (!extractedQuestion || extractedQuestion === "Could not extract question from photo.") {
@@ -85,36 +78,30 @@ EXPLANATION STYLE:
 - Keep explanations under 200 words — short and clear beats long and complex
 - End every response with an encouraging line in the student's language
 
-RE-EXPLAIN MODE: If the student says anything like "samajh nahi aaya", "didn't understand", "explain again", "ek baar aur", "once more", "confusing", "पुரியவில்லை", "అర్థం కాలేదు", "বুঝলাম না" — you MUST re-explain using a COMPLETELY DIFFERENT analogy. Never repeat the same example.
+RE-EXPLAIN MODE: If the student says anything like "samajh nahi aaya", "didn't understand", "explain again", "ek baar aur", "once more", "confusing", "पुரியவில்லை", "అర్థం కాలेదు", "বুঝলাম না" — you MUST re-explain using a COMPLETELY DIFFERENT analogy. Never repeat the same example.
 
 TONE: Warm, patient, never condescending. You are the best teacher the student has ever had.`;
 
-    const explainModel = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: systemPrompt,
-    });
-
-    let activeModel = explainModel;
     let responseText = "";
+    let activeModelUsed = "gemini-2.5-flash";
     try {
-      const result = await explainModel.generateContent(extractedQuestion);
-      responseText = result.response.text() || '';
+      const explainResult = await generateContentWithRetryAndFallback(genAI, extractedQuestion, { systemPrompt });
+      responseText = explainResult.text || '';
+      activeModelUsed = explainResult.modelUsed;
     } catch (genError) {
-      console.warn("Primary model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", genError);
-      const fallbackModel = genAI.getGenerativeModel({
-        model: "gemini-flash-latest",
-        systemInstruction: systemPrompt,
-      });
-      activeModel = fallbackModel;
-      const result = await fallbackModel.generateContent(extractedQuestion);
-      responseText = result.response.text() || '';
+      console.error("Gemini explanation error:", genError);
+      throw genError;
     }
 
     // Response Validation (Requirement 6)
     if (language === "English" && /[\u0900-\u097F]/.test(responseText)) {
       console.log("Validation Failed (Photo doubt): Hindi character detected in English response. Regenerating...");
       try {
-        const strictResult = await activeModel.generateContent(
+        const strictModel = genAI.getGenerativeModel({
+          model: activeModelUsed,
+          systemInstruction: systemPrompt
+        });
+        const strictResult = await strictModel.generateContent(
           `${extractedQuestion}\n\n[SYSTEM NOTE: Your previous answer contained Hindi characters. You must respond ONLY in English. Do not use Hindi script or words.]`
         );
         responseText = strictResult.response.text() || responseText;

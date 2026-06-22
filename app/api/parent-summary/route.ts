@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { generateContentWithRetryAndFallback } from '@/lib/gemini';
 
 export async function POST(request: Request) {
   try {
@@ -57,18 +58,10 @@ export async function POST(request: Request) {
     // Handle no doubts case
     if (doubtCount === 0) {
       try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const prompt = `Translate this sentence into ${user.language} (using its native script, e.g. Hindi in Devanagari script, Tamil in Tamil script, etc.): "This week, ${user.name} did not ask any doubts. They are doing well in their studies, but encourage them to ask questions whenever they face difficulties!" Output ONLY the translation, with no extra tags, quotes, or explanation.`;
-        let noDoubtSummary = "";
-        try {
-          const result = await model.generateContent(prompt);
-          noDoubtSummary = result.response.text().trim();
-        } catch (transError) {
-          console.warn("Primary translation model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", transError);
-          const fallbackModel = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-          const result = await fallbackModel.generateContent(prompt);
-          noDoubtSummary = result.response.text().trim();
-        }
+        
+        const transResult = await generateContentWithRetryAndFallback(genAI, prompt);
+        const noDoubtSummary = transResult.text.trim();
 
         return NextResponse.json({
           summary: noDoubtSummary,
@@ -106,23 +99,17 @@ Structure the paragraph strictly to cover:
 
 Keep the summary under 120 words. Be kind, supportive, and professional.`;
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: systemPrompt,
-    });
-
     let summary = "";
     try {
-      const result = await model.generateContent(`Here are the doubts asked by ${user.name} this week:\n\n${doubtsListText}`);
-      summary = (result.response.text() || '').trim();
+      const summaryResult = await generateContentWithRetryAndFallback(
+        genAI, 
+        `Here are the doubts asked by ${user.name} this week:\n\n${doubtsListText}`,
+        { systemPrompt }
+      );
+      summary = summaryResult.text.trim();
     } catch (genError) {
-      console.warn("Primary counselor model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", genError);
-      const fallbackModel = genAI.getGenerativeModel({
-        model: "gemini-flash-latest",
-        systemInstruction: systemPrompt,
-      });
-      const result = await fallbackModel.generateContent(`Here are the doubts asked by ${user.name} this week:\n\n${doubtsListText}`);
-      summary = (result.response.text() || '').trim();
+      console.error("Gemini counselor summary generation error:", genError);
+      throw genError;
     }
 
     // Calculate weakest subject by count

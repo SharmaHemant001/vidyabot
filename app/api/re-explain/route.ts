@@ -1,6 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { saveDoubtAndIncrementSession } from '@/lib/db-helpers';
+import { sendMessageWithRetryAndFallback } from '@/lib/gemini';
 
 export async function POST(request: Request) {
   try {
@@ -52,24 +55,16 @@ EXPLANATION STYLE (CRITICAL FOR RE-EXPLAIN):
 
 TONE: Warm, patient, never condescending. You are the best teacher the student has ever had.`;
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: systemPrompt,
-    });
-
-    // Start a chat session in Gemini to maintain the context
-    const chat = model.startChat({
-      history: [
-        {
-          role: "user",
-          parts: [{ text: original_question }]
-        },
-        {
-          role: "model",
-          parts: [{ text: original_response }]
-        }
-      ]
-    });
+    const chatHistory = [
+      {
+        role: "user",
+        parts: [{ text: original_question }]
+      },
+      {
+        role: "model",
+        parts: [{ text: original_response }]
+      }
+    ];
 
     // Map the follow-up request prompt to the student's exact language
     const followUpQueries: Record<string, string> = {
@@ -80,52 +75,35 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
       marathi: "मला हे स्पष्टीकरण समजले नाही. कृपया दुसऱ्या नवीन उदाहरणासह पुन्हा समजावून सांगा.",
       tamil: "எனக்கு இந்த விளக்கம் புரியவில்லை. தயவுசெய்து வேறு ஒரு புதிய உதாரணத்துடன் மீண்டும் விளக்கவும்.",
       urdu: "مجھے یہ وضاحت سمجھ نہیں آئی۔ براہ کرم بالکل مختلف مثال یا تشبیہ کا استعمال کرتے ہوئے دوبارہ وضاحت کریں۔",
-      gujarati: "મને આ સમજૂતી સમજાઈ નથી. કૃપા કરીને સંપૂર્ણપણે અલગ ઉદાહરણ અથવા સામ્યતાનો ઉપયોગ કરીને ફરીથી સમજાવો.",
+      gujarati: "મને આ સમજૂતી સમજાઈ નથી. કૃપા કરીને સંપૂર્ણપણે અલગ ઉદાહरण અથવા સામ્યતાનો ઉપયોગ કરીને ફરીથી સમજાવો.",
       kannada: "ನನಗೆ ಈ ವಿವರಣೆ ಅರ್ಥವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಂದು ಹೊಸ ಉದಾಹರಣೆಯೊಂದಿಗೆ ಮತ್ತೆ ವಿವರಿಸಿ.",
-      odia: "ମୁଁ ଏହି ବ୍ୟାଖ୍ୟา ବୁଝିପାରିଲି ନାହିଁ | ଦୟାକରି ଏକ ସମ୍ପୂର୍ଣ୍ଣ ଭିନ୍ନ ଉଦାହରଣ ବ୍ୟବହାର କରି ପୁଣି ବୁଝାନ୍ତୁ |",
-      punjabi: "ਮੈਨੂੰ ਇਹ ਵਿਆਖਿਆ ਸਮਝ ਨਹੀਂ ਆਈ। ਕਿਰਪਾ ਕਰਕੇ ਇੱਕ ਵੱਖਰੀ ਮਿਸਾਲ ਦੀ ਵਰਤੋਂ ਕਰਕੇ ਦੁਬਾਰਾ ਸਮਝਾਓ।",
+      odia: "ମୁଁ ଏହି ବ୍ୟାଖ୍ୟา ବୁଝିପାରିଲି ନାହିଁ | ଦୟାକରି ଏକ ସମ୍ପୂର୍ଣ୍ଣ ଭିନ୍ನ ଉଦାହରଣ ବ୍ୟବହାର କରି ପୁଣି ବୁଝାନ୍ତុ |",
+      punjabi: "ਮੈਨੂੰ ਇਹ ਵਿਆਖਿਆ ਸਮਝ ਨਹੀਂ ਆਈ। ਕਿਰਪา ਕਰਕੇ ਇੱਕ ਵੱਖਰੀ ਮਿਸਾਲ ਦੀ ਵਰਤੋਂ ਕਰਕੇ ਦੁਬਾਰਾ ਸਮਝਾਓ।",
       malayalam: "എനിക്ക് ഈ വിശദീകരണം മനസ്സിലായില്ല. ദയവായി മറ്റൊരു പുതിയ ഉദാഹരണം ഉപയോഗിച്ച് വീണ്ടും വിശദീകരിക്കുക.",
       assamese: "মই এই ব্যাখ্যাটো বুজি নাপালোঁ। অনুগ্ৰহ কৰি এটা সম্পূৰ্ণ বেলেগ উদাহৰণ ব্যৱহাৰ কৰি আকৌ বুজাই দিয়ক।",
       maithili: "हमरा ई बात नै बुझायल। कृपा कऽ कोनो दोसर अलग उदाहरण दैत पुनः समझाउ।",
-      santali: "ᱤᱧ ᱫᱚ ᱱᱚᱣᱟ ᱵᱷᱟᱜᱮ ᱛᱮ ᱵᱟᱹᱧ ᱵᱩᱡᱷᱟᱹᱣ ᱞᱮᱫᱟ ᱾ ᱫᱟᱭᱟ ᱠᱟᱛે ᱮᱴᱟᱜ ᱞᱮᱠᱟᱱ ᱥᱟᱹᱫᱷᱟᱹᱨᱚᱱ ᱛե ᱟᱨᱦۆᱸ ᱵᱩᱡᱷᱟᱹᱣ ᱤᱧ ᱢᱮ ᱾",
+      santali: "ᱤᱧ ᱫᱚ ᱱᱚᱣᱟ ᱵᱷᱟᱜᱮ ᱛᱮ ᱵᱟᱹᱧ ᱵᱩᱡᱷᱟᱹᱣ ᱞᱮᱫᱟ ᱾ ᱫᱟᱭᱟ ᱠᱟᱛᱮ ᱮᱴᱟᱜ ᱞᱮᱠᱟᱱ ᱥᱟᱹᱫᱷᱟᱹᱨᱚᱱ ᱛե ᱟᱨᱦۆᱸ ᱵᱩᱡᱷᱟᱹᱣ ᱤᱧ ᱢᱮ ᱾",
       kashmiri: "ميٚہ آو نَہ ييٚہ وَضاحَت سَمجھ۔ مَہرَبٲنی کٔرِتھ وَضاحَت کَرِو پَتہِ کُنہِ بیٚیہِ مِثالہِ سِت।",
       nepali: "मैले यो स्पष्टीकरण बुझिनँ। कृपया अर्को बिल्कुलै फरक उदाहरण प्रयोग गरेर फेरि सम्झाउनुहोस्।",
       sindhi: "مون کي هي وضاحت سمجهه ۾ نه آئي. مهرباني ڪري هڪ مختلف مثال استعمال ڪندي ٻيهر وضاحت ڪريو.",
       konkani: "म्हाका हें स्पष्टीकरण समजलें ना. कृपा करून एका वेगळ्या उदाहरणाचो उपेग करून परत समजावन सांगात.",
-      dogri: "गी ऐ समझ नी आया। कृपा करियै कोई बक्खरा उदाहरण देइयै परत समझायो।",
+      dogri: "गी ऐ समझ नी आया। कृपा करiyai कोई बक्खरा उदाहरण देइयै परत समझायो।",
       manipuri: "ঐহাক্না ৱারোল অসি খঙদে। অন্য অতোপ্পা খুদম অমগা লোয়ননা অমুক্তা অমুক হন্না তাকপীয়ু।",
-      bodo: "आं बे बियाखौ बुजियाखिसै। अननानै गुबुन मोनसे बिदिनथि होनानै फिन बुजायफिन।"
+      bodo: "आं बे बियाखौ बुजियाखिसै। अननानै गुबुन मोनসে बिदिनथि होनानै फिन बुजायफिन।"
     };
 
     const langLower = language.toLowerCase();
     const followUpQuery = followUpQueries[langLower] || followUpQueries.english;
 
     let responseText = "";
-    let activeChat = chat;
+    let activeChat: any = null;
     try {
-      const result = await chat.sendMessage(followUpQuery);
-      responseText = result.response.text() || '';
+      const chatResult = await sendMessageWithRetryAndFallback(genAI, chatHistory, followUpQuery, { systemPrompt });
+      responseText = chatResult.text || '';
+      activeChat = chatResult.chat;
     } catch (chatError) {
-      console.warn("Primary chat session gemini-2.5-flash failed, trying fallback gemini-flash-latest:", chatError);
-      const fallbackModel = genAI.getGenerativeModel({
-        model: "gemini-flash-latest",
-        systemInstruction: systemPrompt,
-      });
-      const fallbackChat = fallbackModel.startChat({
-        history: [
-          {
-            role: "user",
-            parts: [{ text: original_question }]
-          },
-          {
-            role: "model",
-            parts: [{ text: original_response }]
-          }
-        ]
-      });
-      activeChat = fallbackChat;
-      const result = await fallbackChat.sendMessage(followUpQuery);
-      responseText = result.response.text() || '';
+      console.error("Gemini re-explain chat error:", chatError);
+      throw chatError;
     }
 
     // Response Validation (Requirement 6)
