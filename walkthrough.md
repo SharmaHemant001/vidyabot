@@ -124,6 +124,9 @@ We verified compilation by running `npm run build`:
   - **Exposed API Errors**: Modified `/api/photo-doubt`, `/api/text-doubt`, `/api/re-explain`, and `/api/parent-summary` catch blocks to return the actual `error.message` in the JSON response, making diagnostic/quota errors fully visible in frontend toast notifications.
   - **Robust Model Fallbacks**: Added automatic fallback to the stable `gemini-flash-latest` model in case the primary `gemini-2.5-flash` model fails or runs out of daily/minute rate-limits. This ensures 100% uptime for all AI tutoring, OCR, and report generation services even under heavy usage.
   - **Exponential Backoff Retry Wrapper**: Created a dedicated [`lib/gemini.ts`](file:///C:/Users/Asus/Desktop/vidyabot/lib/gemini.ts) helper utility to encapsulate all Gemini API interactions. In addition to fallback logic, it implements automatic **exponential backoff retries** when transient `429 Too Many Requests` (Quota exceeded) errors are returned, giving the client multiple attempts to complete the request before giving up.
+  - **Mathematical OCR Prompt Refinement**: Updated the Gemini OCR prompt in [`app/api/photo-doubt/route.ts`](file:///C:/Users/Asus/Desktop/vidyabot/app/api/photo-doubt/route.ts#L39-L43) to explicitly instruct Gemini to extract mathematical equations, formulas, and matrices, transcoding them into LaTeX notation.
+  - **MIME Type Coercion**: Coerced generic browser binary uploads (like `application/octet-stream` or missing MIME types) to `image/jpeg` in [`app/api/photo-doubt/route.ts`](file:///C:/Users/Asus/Desktop/vidyabot/app/api/photo-doubt/route.ts#L32-L37) to prevent Google Generative AI validation errors.
+
 
 
 
