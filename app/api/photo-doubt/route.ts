@@ -32,13 +32,13 @@ export async function POST(request: Request) {
     const imagePart = {
       inlineData: {
         data: buffer.toString('base64'),
-        mimeType: imageFile.type || 'image/jpeg'
+        mimeType: imageFile.type && imageFile.type.startsWith('image/') ? imageFile.type : 'image/jpeg'
       }
     };
 
     // 2. Call Gemini OCR to extract the academic question
     const genAI = new GoogleGenerativeAI(geminiKey);
-    const geminiPrompt = "Extract the written academic question or text from this image. Only return the extracted question text as is, without adding extra words, greetings, or formatting.";
+    const geminiPrompt = "Extract all text, academic questions, math equations, formulas, or matrices from this image. If it contains mathematical equations or matrices, transcode them into clear readable text or LaTeX notation. Return ONLY the extracted question/content as is, without adding any comments, greetings, or introductory/explanatory text.";
     
     let extractedQuestion = "";
     try {
