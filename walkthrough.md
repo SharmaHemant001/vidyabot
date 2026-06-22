@@ -80,3 +80,14 @@ We verified compilation by running `npm run build`:
     - If they click "Listen" on any other message (or a voice doubt autoplays), it stops the active audio stream first before starting the new one.
   - Updated the UI in [page.tsx](file:///C:/Users/Asus/Desktop/vidyabot/app/chat/page.tsx) to dynamic states: when audio is active, the button changes to a highlighted amber color showing a **Pause** icon and text (`रुकें / Pause`), toggleable back to the standard blue **Volume/Listen** button when paused or finished.
 
+---
+
+## 🆓 Native Gemini Audio Transcription Fallback (100% Free Tier Voice Doubts)
+
+- **Issue**: OpenAI Whisper requires a paid plan, causing `429 Quota Exceeded` errors when the key runs out of funds or when the app is run on a strict free-tier budget without an OpenAI billing account.
+- **Fix**: 
+  - Modified [route.ts](file:///C:/Users/Asus/Desktop/vidyabot/app/api/voice-doubt/route.ts#L35-L100) to remove the mandatory `OPENAI_API_KEY` restriction, only throwing if the core `GEMINI_API_KEY` is missing.
+  - Implemented an automatic native transcription fallback using **Gemini 2.5 Flash** (`gemini-2.5-flash`). If `OPENAI_API_KEY` is absent, or if Whisper fails/runs out of quota, the backend converts the audio file to Base64 and transcribes it natively via Gemini for free.
+  - This ensures that voice doubts are completely functional without needing any paid OpenAI billing plan!
+
+

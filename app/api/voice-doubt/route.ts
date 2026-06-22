@@ -32,11 +32,11 @@ export async function POST(request: Request) {
 
     console.log("OPENAI_API_KEY exists:", !!openaiKey);
 
-    if (!openaiKey || !geminiKey) {
-      throw new Error("Required API keys (OpenAI/Gemini) are not defined in environment variables");
+    if (!geminiKey) {
+      throw new Error("Required API key (Gemini) is not defined in environment variables");
     }
 
-    // 1. Transcribe the audio using OpenAI Whisper
+    // 1. Transcribe the audio using OpenAI Whisper (if key exists)
     const arrayBuffer = await audioFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
@@ -44,54 +44,83 @@ export async function POST(request: Request) {
     let whisperFailedWithQuota = false;
     let whisperErrorMsg = "";
 
-    try {
-      const mimeType = audioFile.type || 'audio/webm';
-      const extension = mimeType.includes('mp4') ? 'mp4' : 
-                        mimeType.includes('wav') ? 'wav' : 
-                        mimeType.includes('ogg') ? 'ogg' : 'webm';
-      
-      const whisperFormData = new FormData();
-      const audioBlob = new Blob([buffer], { type: mimeType });
-      whisperFormData.append('file', audioBlob, `recording.${extension}`);
-      whisperFormData.append('model', 'whisper-1');
+    if (openaiKey) {
+      try {
+        const mimeType = audioFile.type || 'audio/webm';
+        const extension = mimeType.includes('mp4') ? 'mp4' : 
+                          mimeType.includes('wav') ? 'wav' : 
+                          mimeType.includes('ogg') ? 'ogg' : 'webm';
+        
+        const whisperFormData = new FormData();
+        const audioBlob = new Blob([buffer], { type: mimeType });
+        whisperFormData.append('file', audioBlob, `recording.${extension}`);
+        whisperFormData.append('model', 'whisper-1');
 
-      console.log("Sending to Whisper: recording." + extension, "size:", audioBlob.size, "mime:", mimeType);
-      
-      const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiKey}`
-        },
-        body: whisperFormData
-      });
-      
-      const whisperData = await whisperRes.json();
-      
-      if (!whisperRes.ok) {
-        const errorDetail = whisperData.error?.message || JSON.stringify(whisperData);
-        const isQuotaError = whisperRes.status === 429 || 
-                             errorDetail.toLowerCase().includes("quota") || 
-                             errorDetail.toLowerCase().includes("insufficient_quota");
+        console.log("Sending to Whisper: recording." + extension, "size:", audioBlob.size, "mime:", mimeType);
+        
+        const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiKey}`
+          },
+          body: whisperFormData
+        });
+        
+        const whisperData = await whisperRes.json();
+        
+        if (!whisperRes.ok) {
+          const errorDetail = whisperData.error?.message || JSON.stringify(whisperData);
+          const isQuotaError = whisperRes.status === 429 || 
+                               errorDetail.toLowerCase().includes("quota") || 
+                               errorDetail.toLowerCase().includes("insufficient_quota");
+          if (isQuotaError) {
+            whisperFailedWithQuota = true;
+            console.error("Whisper quota exceeded:", errorDetail);
+          }
+          throw new Error(`OpenAI Whisper API returned status ${whisperRes.status}: ${errorDetail}`);
+        }
+        
+        transcript = (whisperData.text || "").trim();
+        console.log("Whisper Transcript:", transcript);
+      } catch (whisperError) {
+        const errMsg = whisperError instanceof Error ? whisperError.message : String(whisperError);
+        whisperErrorMsg = errMsg;
+        const isQuotaError = errMsg.includes("429") || 
+                             errMsg.toLowerCase().includes("quota") || 
+                             errMsg.toLowerCase().includes("insufficient_quota");
         if (isQuotaError) {
           whisperFailedWithQuota = true;
-          console.error("Whisper quota exceeded:", errorDetail);
+          console.error("Whisper quota exceeded:", whisperError);
+        } else {
+          console.error("Whisper error:", whisperError);
         }
-        throw new Error(`OpenAI Whisper API returned status ${whisperRes.status}: ${errorDetail}`);
       }
-      
-      transcript = (whisperData.text || "").trim();
-      console.log("Transcript:", transcript);
-    } catch (whisperError) {
-      const errMsg = whisperError instanceof Error ? whisperError.message : String(whisperError);
-      whisperErrorMsg = errMsg;
-      const isQuotaError = errMsg.includes("429") || 
-                           errMsg.toLowerCase().includes("quota") || 
-                           errMsg.toLowerCase().includes("insufficient_quota");
-      if (isQuotaError) {
-        whisperFailedWithQuota = true;
-        console.error("Whisper quota exceeded:", whisperError);
-      } else {
-        console.error("Whisper error:", whisperError);
+    } else {
+      console.log("Skipping OpenAI Whisper because OPENAI_API_KEY is not defined.");
+    }
+
+    // 1b. Free Tier Fallback: Transcribe natively via Gemini 2.5 Flash if Whisper failed or was skipped
+    if (!transcript && geminiKey) {
+      console.log("Using Gemini 2.5 Flash for audio transcription (Free Tier)...");
+      try {
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const mimeType = audioFile.type || 'audio/webm';
+        
+        const result = await model.generateContent([
+          {
+            inlineData: {
+              data: buffer.toString('base64'),
+              mimeType: mimeType
+            }
+          },
+          "You are an expert audio transcription assistant. Listen to this student's recorded audio and write down the exact words spoken, in their original language. Output ONLY the exact transcription, with no extra tags, greetings, or explanations."
+        ]);
+        
+        transcript = (result.response.text() || "").trim();
+        console.log("Gemini Transcript:", transcript);
+      } catch (geminiTxError) {
+        console.error("Gemini audio transcription error:", geminiTxError);
       }
     }
 
