@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Camera, Mic, Send, User, LayoutDashboard, Volume2, Sparkles, X, ArrowLeft, LogOut, Award, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Camera, Mic, Send, User, LayoutDashboard, Volume2, Pause, Sparkles, X, ArrowLeft, LogOut, Award, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useUser, User as ContextUser } from '@/context/UserContext';
 import { getSubjectColor } from '@/lib/utils';
@@ -254,6 +254,21 @@ export default function ChatPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const speechTranscriptRef = useRef<string>('');
+  
+  // Audio playback state and ref
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.onended = null;
+        audioRef.current.onpause = null;
+      }
+    };
+  }, []);
   
   // Toast state
   const [toastMessage, setToastMessage] = useState('');
@@ -917,8 +932,27 @@ export default function ChatPage() {
       }
 
       if (data.audio_base64) {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.onended = null;
+          audioRef.current.onpause = null;
+        }
+
         const audio = new Audio(`data:audio/mp3;base64,${data.audio_base64}`);
-        audio.play().catch(e => console.warn('Autoplay blocked by browser:', e));
+        audioRef.current = audio;
+        setPlayingMessageId(assistantMsg.id);
+
+        audio.onended = () => {
+          setPlayingMessageId(null);
+        };
+        audio.onpause = () => {
+          setPlayingMessageId(null);
+        };
+
+        audio.play().catch(e => {
+          console.warn('Autoplay blocked by browser:', e);
+          setPlayingMessageId(null);
+        });
       }
 
     } catch (err) {
@@ -990,9 +1024,38 @@ export default function ChatPage() {
     }
   };
 
-  const playAudio = (base64: string) => {
+  const playAudio = (base64: string, messageId: string) => {
+    if (playingMessageId === messageId) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.onended = null;
+        audioRef.current.onpause = null;
+      }
+      setPlayingMessageId(null);
+      return;
+    }
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.onended = null;
+      audioRef.current.onpause = null;
+    }
+
     const audio = new Audio(`data:audio/mp3;base64,${base64}`);
-    audio.play().catch(e => console.warn('Failed to play audio:', e));
+    audioRef.current = audio;
+    setPlayingMessageId(messageId);
+
+    audio.onended = () => {
+      setPlayingMessageId(null);
+    };
+    audio.onpause = () => {
+      setPlayingMessageId(null);
+    };
+
+    audio.play().catch(e => {
+      console.warn('Failed to play audio:', e);
+      setPlayingMessageId(null);
+    });
   };
 
   // Personalized Time-based Greeting (Feature B)
@@ -1319,11 +1382,24 @@ export default function ChatPage() {
                     <div className="mt-3 pt-3 border-t border-[#415A77]/20 flex flex-wrap items-center gap-2">
                       {msg.audioBase64 && (
                         <button
-                          onClick={() => playAudio(msg.audioBase64!)}
-                          className="flex items-center space-x-1 text-[11px] font-bold text-sky-400 hover:text-sky-300 min-h-[32px] px-2 rounded hover:bg-sky-500/10 transition"
+                          onClick={() => playAudio(msg.audioBase64!, msg.id)}
+                          className={`flex items-center space-x-1 text-[11px] font-bold min-h-[32px] px-2 rounded transition ${
+                            playingMessageId === msg.id
+                              ? 'text-amber-400 hover:text-amber-300 bg-amber-500/10'
+                              : 'text-sky-400 hover:text-sky-300 hover:bg-sky-500/10'
+                          }`}
                         >
-                          <Volume2 className="w-3.5 h-3.5" />
-                          <span>सुनें / Listen</span>
+                          {playingMessageId === msg.id ? (
+                            <>
+                              <Pause className="w-3.5 h-3.5" />
+                              <span>रुकें / Pause</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-3.5 h-3.5" />
+                              <span>सुनें / Listen</span>
+                            </>
+                          )}
                         </button>
                       )}
 

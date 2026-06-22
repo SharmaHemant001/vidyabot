@@ -66,3 +66,17 @@ We verified compilation by running `npm run build`:
 - **Issue**: Voice responses returned only text and did not play audio, failing with ElevenLabs status `402 Payment Required` (code: `paid_plan_required`). This occurred because the code requested voice ID `21m00Tcm4TlvDq8ikWAM` (Rachel), which ElevenLabs now restricts to paid tiers when used via their API.
 - **Fix**: Updated [route.ts](file:///C:/Users/Asus/Desktop/vidyabot/app/api/voice-doubt/route.ts#L188) and the local ElevenLabs test script [test-elevenlabs.js](file:///C:/Users/Asus/Desktop/vidyabot/scripts/test-elevenlabs.js#L30) to use Bella's voice ID (`EXAVITQu4vr4xnSDxMaL`), which is fully supported and functional on the free tier.
 - **Verification**: Verified using `node scripts/test-elevenlabs.js` which now successfully yields `200 OK` (audio generated), and verified the project compiles cleanly using `npm run build`.
+
+---
+
+## 🔊 Managed Audio Playback (Single Instance with Play/Pause Toggling)
+
+- **Issue**: Clicking "Listen" multiple times on a message (or playing audio from multiple messages) started parallel voice streams that spoke over each other. There was also no way to pause or stop the assistant once it started speaking.
+- **Fix**:
+  - Introduced `playingMessageId` state and `audioRef` ref to keep track of the currently active audio instance.
+  - Implemented automatic cleanup in a `useEffect` hook to pause playback and clear listeners when the chat component unmounts.
+  - Modified `playAudio` so that:
+    - If the user clicks the "Listen" button of a currently playing message, it pauses the audio and resets the playing state.
+    - If they click "Listen" on any other message (or a voice doubt autoplays), it stops the active audio stream first before starting the new one.
+  - Updated the UI in [page.tsx](file:///C:/Users/Asus/Desktop/vidyabot/app/chat/page.tsx) to dynamic states: when audio is active, the button changes to a highlighted amber color showing a **Pause** icon and text (`रुकें / Pause`), toggleable back to the standard blue **Volume/Listen** button when paused or finished.
+
