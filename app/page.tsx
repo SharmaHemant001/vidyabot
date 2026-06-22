@@ -266,7 +266,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-lg font-bold mb-2">Ask in your language</h3>
               <p className="text-sm text-[#94A3B8] leading-relaxed">
-                Speak your doubts in Hindi, Tamil, Bengali, Telugu, or Marathi. Get spoken audio explanations dynamically generated back to you.
+                Speak your doubts in Hindi, English, Tamil, Telugu, or any of the 22 official Indian languages. Get spoken audio explanations dynamically generated back to you.
               </p>
             </div>
           </div>

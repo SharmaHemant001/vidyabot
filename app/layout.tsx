@@ -17,10 +17,10 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'VidyaBot 🧠 | AI Tutor for Bharat',
-  description: 'Free AI tutor for Indian students Class 6-12. Ask doubts in Hindi, Tamil, Bengali via text, photo or voice.',
+  description: 'Free AI tutor for Indian students Class 6-12. Ask doubts in Hindi, English, Tamil, Telugu, and all 22 official Indian languages via text, photo, or voice.',
   openGraph: {
     title: 'VidyaBot — AI Doubt Solving Tutor for Bharat',
-    description: 'Free multilingual AI tutor for 250M+ Indian students. Ask in your language, get explained — not just answered.',
+    description: 'Free multilingual AI tutor for 250M+ Indian students. Ask in any of the 22 official Indian languages, get explained — not just answered.',
     url: 'https://vidyabot-zeta.vercel.app',
     siteName: 'VidyaBot',
     images: [

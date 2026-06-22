@@ -88,6 +88,22 @@ We verified compilation by running `npm run build`:
 - **Fix**: 
   - Modified [route.ts](file:///C:/Users/Asus/Desktop/vidyabot/app/api/voice-doubt/route.ts#L35-L100) to remove the mandatory `OPENAI_API_KEY` restriction, only throwing if the core `GEMINI_API_KEY` is missing.
   - Implemented an automatic native transcription fallback using **Gemini 2.5 Flash** (`gemini-2.5-flash`). If `OPENAI_API_KEY` is absent, or if Whisper fails/runs out of quota, the backend converts the audio file to Base64 and transcribes it natively via Gemini for free.
-  - This ensures that voice doubts are completely functional without needing any paid OpenAI billing plan!
+  - **Verification**: Verified using `node scripts/test-elevenlabs.js` which now successfully yields `200 OK` (audio generated), and verified the project compiles cleanly using `npm run build`.
+
+---
+
+## 🇮🇳 Support for all 22 Official Indian Languages
+
+- **Goal**: Enable students to learn in their own native regional languages.
+- **Fixes Applied**:
+  - **Comprehensive Config**: Introduced the complete `INDIAN_LANGUAGES` metadata array mapping name, native script representation, and BCP 47 flags for all 22 official Indian languages.
+  - **Searchable Onboarding Dropdown**: In [onboarding/page.tsx](file:///C:/Users/Asus/Desktop/vidyabot/app/onboarding/page.tsx#L339-L390), replaced static language selector buttons with a searchable, scrollable dropdown on desktop viewports and a native `<select>` input on mobile viewports.
+  - **Dynamic Chat Header Selector**: Updated the dropdown in [chat/page.tsx](file:///C:/Users/Asus/Desktop/vidyabot/app/chat/page.tsx#L1245-L1250) to render all 22 languages showing native script and flag.
+  - **Lookup-Based SpeechRecognition**: Replaced hardcoded if-statements in [chat/page.tsx](file:///C:/Users/Asus/Desktop/vidyabot/app/chat/page.tsx#L778-L806) with a lookup table mapping all 22 languages to their BCP 47 SpeechRecognition locales.
+  - **Counseling Summary Translation**: Updated local dashboard counseling summary templates in [page.tsx](file:///C:/Users/Asus/Desktop/vidyabot/app/parent-summary/[userId]/page.tsx#L24-L54) to cover all 22 languages.
+  - **Generalized Prompt Constraints**: Simplified Gemini prompts in backend routes (`text-doubt`, `photo-doubt`, `voice-doubt`, `re-explain`, `parent-summary`) to receive the preferred language parameter dynamically and respond in its native script.
+  - **Dynamic counselor translations**: Replaced hardcoded no-doubt parent reports with a dynamic, fast Gemini translation call in [parent-summary/route.ts](file:///C:/Users/Asus/Desktop/vidyabot/app/api/parent-summary/route.ts#L52-L78).
+  - **Marketing text**: Updated the landing page and layout metadata descriptions.
+
 
 

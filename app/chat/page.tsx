@@ -20,6 +20,31 @@ interface Message {
   imageUrl?: string;
 }
 
+const INDIAN_LANGUAGES = [
+  { code: "hindi",      name: "Hindi",       native: "हिन्दी",        flag: "🇮🇳" },
+  { code: "bengali",    name: "Bengali",     native: "বাংলা",          flag: "🇮🇳" },
+  { code: "telugu",     name: "Telugu",      native: "తెలుగు",         flag: "🇮🇳" },
+  { code: "marathi",    name: "Marathi",     native: "मराठी",          flag: "🇮🇳" },
+  { code: "tamil",      name: "Tamil",       native: "தமிழ்",          flag: "🇮🇳" },
+  { code: "urdu",       name: "Urdu",        native: "اردو",           flag: "🇮🇳" },
+  { code: "gujarati",   name: "Gujarati",    native: "ગુજરાતી",        flag: "🇮🇳" },
+  { code: "kannada",    name: "Kannada",     native: "ಕನ್ನಡ",          flag: "🇮🇳" },
+  { code: "odia",       name: "Odia",        native: "ଓଡ଼ିଆ",          flag: "🇮🇳" },
+  { code: "punjabi",    name: "Punjabi",     native: "ਪੰਜਾਬੀ",         flag: "🇮🇳" },
+  { code: "malayalam",  name: "Malayalam",   native: "മലയാളം",         flag: "🇮🇳" },
+  { code: "assamese",   name: "Assamese",    native: "অসমীয়া",        flag: "🇮🇳" },
+  { code: "maithili",   name: "Maithili",    native: "मैथिली",         flag: "🇮🇳" },
+  { code: "santali",    name: "Santali",     native: "ᱥᱟᱱᱛᱟᱲᱤ",      flag: "🇮🇳" },
+  { code: "kashmiri",   name: "Kashmiri",    native: "कॉशुर",          flag: "🇮🇳" },
+  { code: "nepali",     name: "Nepali",      native: "नेपाली",         flag: "🇮🇳" },
+  { code: "sindhi",     name: "Sindhi",      native: "سنڌي",           flag: "🇮🇳" },
+  { code: "konkani",    name: "Konkani",     native: "कोंकणी",         flag: "🇮🇳" },
+  { code: "dogri",      name: "Dogri",       native: "डोगरी",          flag: "🇮🇳" },
+  { code: "manipuri",   name: "Manipuri",    native: "মৈতৈলোন্",       flag: "🇮🇳" },
+  { code: "bodo",       name: "Bodo",        native: "बड़ो",            flag: "🇮🇳" },
+  { code: "english",    name: "English",     native: "English",        flag: "🇬🇧" },
+];
+
 interface LocalDoubt {
   id: string;
   user_id: string;
@@ -753,16 +778,32 @@ export default function ChatPage() {
           
           let langCode = 'en-IN';
           if (user) {
-            if (user.language === 'Hindi') langCode = 'hi-IN';
-            else if (user.language === 'Tamil') langCode = 'ta-IN';
-            else if (user.language === 'Telugu') langCode = 'te-IN';
-            else if (user.language === 'Bengali') langCode = 'bn-IN';
-            else if (user.language === 'Kannada') langCode = 'kn-IN';
-            else if (user.language === 'Malayalam') langCode = 'ml-IN';
-            else if (user.language === 'Gujarati') langCode = 'gu-IN';
-            else if (user.language === 'Marathi') langCode = 'mr-IN';
-            else if (user.language === 'Urdu') langCode = 'ur-IN';
-            else if (user.language === 'Punjabi') langCode = 'pa-IN';
+            const langKey = user.language.toLowerCase();
+            const mappings: Record<string, string> = {
+              hindi: 'hi-IN',
+              bengali: 'bn-IN',
+              telugu: 'te-IN',
+              marathi: 'mr-IN',
+              tamil: 'ta-IN',
+              urdu: 'ur-IN',
+              gujarati: 'gu-IN',
+              kannada: 'kn-IN',
+              odia: 'or-IN',
+              punjabi: 'pa-IN',
+              malayalam: 'ml-IN',
+              assamese: 'as-IN',
+              maithili: 'mai-IN',
+              santali: 'sat-IN',
+              kashmiri: 'ks-IN',
+              nepali: 'ne-NP',
+              sindhi: 'sd-IN',
+              konkani: 'kok-IN',
+              dogri: 'doi-IN',
+              manipuri: 'mni-IN',
+              bodo: 'brx-IN',
+              english: 'en-IN'
+            };
+            langCode = mappings[langKey] || 'en-IN';
           }
           rec.lang = langCode;
 
@@ -1213,7 +1254,7 @@ export default function ChatPage() {
                 console.log("Language selected:", newLang);
                 updateUser({ language: newLang });
               }}
-              className="px-2 pr-5 py-1 text-[10px] font-bold bg-[#0D9488]/20 border border-[#0D9488]/40 text-[#0D9488] rounded-full focus:outline-none cursor-pointer appearance-none relative"
+              className="px-2 pr-5 py-1 text-[10px] font-bold bg-[#0D9488]/20 border border-[#0D9488]/40 text-[#0D9488] rounded-full focus:outline-none cursor-pointer appearance-none relative animate-pulse-subtle"
               style={{
                 backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%230D9488' d='M0 0l5 5 5-5z'/></svg>")`,
                 backgroundPosition: 'right 6px center',
@@ -1221,13 +1262,11 @@ export default function ChatPage() {
                 backgroundSize: '8px 5px'
               }}
             >
-              <option value="Hindi" className="bg-[#1B263B] text-white">Hindi 🇮🇳</option>
-              <option value="English" className="bg-[#1B263B] text-white">English 🇬🇧</option>
-              <option value="Tamil" className="bg-[#1B263B] text-white">Tamil 🇮🇳</option>
-              <option value="Bengali" className="bg-[#1B263B] text-white">Bengali 🇮🇳</option>
-              <option value="Telugu" className="bg-[#1B263B] text-white">Telugu 🇮🇳</option>
-              <option value="Marathi" className="bg-[#1B263B] text-white">Marathi 🇮🇳</option>
-              <option value="Kannada" className="bg-[#1B263B] text-white">Kannada 🇮🇳</option>
+              {INDIAN_LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.name} className="bg-[#1B263B] text-white">
+                  {lang.name} {lang.flag}
+                </option>
+              ))}
             </select>
           </div>
 

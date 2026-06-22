@@ -13,6 +13,31 @@ interface ProfileUser {
   language: string;
 }
 
+const INDIAN_LANGUAGES = [
+  { code: "hindi",      name: "Hindi",       native: "हिन्दी",        flag: "🇮🇳" },
+  { code: "bengali",    name: "Bengali",     native: "বাংলা",          flag: "🇮🇳" },
+  { code: "telugu",     name: "Telugu",      native: "తెలుగు",         flag: "🇮🇳" },
+  { code: "marathi",    name: "Marathi",     native: "मराठी",          flag: "🇮🇳" },
+  { code: "tamil",      name: "Tamil",       native: "தமிழ்",          flag: "🇮🇳" },
+  { code: "urdu",       name: "Urdu",        native: "اردو",           flag: "🇮🇳" },
+  { code: "gujarati",   name: "Gujarati",    native: "ગુજરાતી",        flag: "🇮🇳" },
+  { code: "kannada",    name: "Kannada",     native: "ಕನ್ನಡ",          flag: "🇮🇳" },
+  { code: "odia",       name: "Odia",        native: "ଓଡ଼ିଆ",          flag: "🇮🇳" },
+  { code: "punjabi",    name: "Punjabi",     native: "ਪੰਜਾਬੀ",         flag: "🇮🇳" },
+  { code: "malayalam",  name: "Malayalam",   native: "മലയാളം",         flag: "🇮🇳" },
+  { code: "assamese",   name: "Assamese",    native: "অসমীয়া",        flag: "🇮🇳" },
+  { code: "maithili",   name: "Maithili",    native: "मैथिली",         flag: "🇮🇳" },
+  { code: "santali",    name: "Santali",     native: "ᱥᱟᱱᱛᱟᱲᱤ",      flag: "🇮🇳" },
+  { code: "kashmiri",   name: "Kashmiri",    native: "कॉशुर",          flag: "🇮🇳" },
+  { code: "nepali",     name: "Nepali",      native: "नेपाली",         flag: "🇮🇳" },
+  { code: "sindhi",     name: "Sindhi",      native: "سنڌي",           flag: "🇮🇳" },
+  { code: "konkani",    name: "Konkani",     native: "कोंकणी",         flag: "🇮🇳" },
+  { code: "dogri",      name: "Dogri",       native: "डोगरी",          flag: "🇮🇳" },
+  { code: "manipuri",   name: "Manipuri",    native: "মৈতৈলোন্",       flag: "🇮🇳" },
+  { code: "bodo",       name: "Bodo",        native: "बड़ो",            flag: "🇮🇳" },
+  { code: "english",    name: "English",     native: "English",        flag: "🇬🇧" },
+];
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, login } = useUser();
@@ -20,6 +45,7 @@ export default function OnboardingPage() {
   const [name, setName] = useState('');
   const [classLevel, setClassLevel] = useState<number>(10);
   const [language, setLanguage] = useState('Hindi');
+  const [searchTerm, setSearchTerm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [recentProfiles, setRecentProfiles] = useState<ProfileUser[]>([]);
@@ -310,31 +336,71 @@ export default function OnboardingPage() {
             <h2 className="text-2xl font-extrabold text-white mb-2">Select Preferred Language</h2>
             <p className="text-sm text-[#94A3B8] mb-6">अपनी पसंदीदा भाषा चुनें</p>
 
-            <div className="space-y-2 mb-6 max-h-[220px] overflow-y-auto pr-1">
-              {[
-                { id: 'Hindi', label: 'Hindi 🇮🇳' },
-                { id: 'Tamil', label: 'Tamil 🇮🇳' },
-                { id: 'Bengali', label: 'Bengali 🇮🇳' },
-                { id: 'Telugu', label: 'Telugu 🇮🇳' },
-                { id: 'Marathi', label: 'Marathi 🇮🇳' },
-                { id: 'Kannada', label: 'Kannada 🇮🇳' },
-                { id: 'English', label: 'English 🇬🇧' }
-              ].map((lang) => (
-                <button
-                  key={lang.id}
-                  type="button"
-                  onClick={() => setLanguage(lang.id)}
-                  className={`w-full py-3.5 px-4 rounded-xl border text-left font-medium transition flex items-center justify-between min-h-[44px] ${
-                    language === lang.id
-                      ? 'bg-[#0D9488]/15 border-[#0D9488] text-white'
-                      : 'bg-[#0D1B2A] border-[#415A77] text-[#94A3B8] hover:border-[#94A3B8]'
-                  }`}
-                >
-                  <span>{lang.label}</span>
-                  {language === lang.id && <span className="text-[#0D9488]">✓</span>}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const filteredLanguages = INDIAN_LANGUAGES.filter(lang => 
+                lang.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                lang.native.toLowerCase().includes(searchTerm.toLowerCase())
+              );
+              return (
+                <>
+                  {/* Desktop View: Searchable scrollable list */}
+                  <div className="hidden sm:block">
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search language / भाषा खोजें..."
+                      className="w-full px-4 py-2.5 mb-3 bg-[#0D1B2A] border border-[#415A77] rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-[#0D9488] transition"
+                    />
+                    <div className="space-y-2 mb-6 max-h-[220px] overflow-y-auto pr-1 animate-slide-in">
+                      {filteredLanguages.map((lang) => (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => setLanguage(lang.name)}
+                          className={`w-full py-2.5 px-4 rounded-xl border text-left font-medium transition flex items-center justify-between min-h-[44px] ${
+                            language === lang.name
+                              ? 'bg-[#0D9488]/15 border-[#0D9488] text-white'
+                              : 'bg-[#0D1B2A] border-[#415A77] text-[#94A3B8] hover:border-[#94A3B8]'
+                          }`}
+                        >
+                          <span className="flex items-center space-x-2">
+                            <span>{lang.flag}</span>
+                            <span>{lang.name} — <span className="text-xs text-[#94A3B8]">{lang.native}</span></span>
+                          </span>
+                          {language === lang.name && <span className="text-[#0D9488]">✓</span>}
+                        </button>
+                      ))}
+                      {filteredLanguages.length === 0 && (
+                        <p className="text-xs text-slate-400 text-center py-4">No languages match your search.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Mobile View: Native Select Dropdown */}
+                  <div className="block sm:hidden mb-6">
+                    <select
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value)}
+                      className="w-full px-4 py-3.5 bg-[#0D1B2A] border border-[#415A77]/40 rounded-xl text-sm text-white focus:outline-none focus:border-[#0D9488] cursor-pointer appearance-none"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%2394A3B8' d='M0 0l5 5 5-5z'/></svg>")`,
+                        backgroundPosition: 'right 16px center',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundSize: '10px 6px',
+                        paddingRight: '40px'
+                      }}
+                    >
+                      {INDIAN_LANGUAGES.map((lang) => (
+                        <option key={lang.code} value={lang.name} className="bg-[#1B263B] text-white">
+                          {lang.flag} {lang.name} — {lang.native}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              );
+            })()}
 
             <div className="flex space-x-4 mt-6">
               <button

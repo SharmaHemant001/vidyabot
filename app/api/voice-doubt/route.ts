@@ -149,13 +149,9 @@ IMPORTANT:
 Respond ONLY in ${language}.
 
 Language rules:
-* If language = English → answer only in English.
-* If language = Hindi → answer only in Hindi.
-* If language = Tamil → answer only in Tamil.
-* If language = Telugu → answer only in Telugu.
-* Never switch languages unless explicitly asked.
-* Do not mix Hindi and English.
-* The selected language is mandatory.
+* You MUST respond ONLY in ${language} using its native script (e.g. Hindi in Devanagari script, Tamil in Tamil script, etc.).
+* Never switch languages unless explicitly asked by the student.
+* Do not mix languages. The selected language (${language}) is strictly mandatory.
 
 Student Class: ${classLevel}
 

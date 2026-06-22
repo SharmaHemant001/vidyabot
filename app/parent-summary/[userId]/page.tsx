@@ -24,6 +24,36 @@ interface LocalDoubt {
   timestamp: string;
 }
 
+const getLocalSummary = (name: string, doubtCount: number, subjectCount: number, language: string) => {
+  const templates: Record<string, string> = {
+    english: `This week, ${name} asked ${doubtCount} doubt(s) across ${subjectCount} subject(s). They showed active participation and made good progress. Keep practicing daily!`,
+    hindi: `इस सप्ताह, ${name} ने ${subjectCount} विषय(ओं) में कुल ${doubtCount} प्रश्न पूछे। उन्होंने सक्रिय भागीदारी दिखाई और अच्छा प्रयास किया। दैनिक अभ्यास जारी रखें!`,
+    bengali: `এই সপ্তাহে, ${name} ${subjectCount} টি বিষয়ে ${doubtCount} টি সন্দেহ জিজ্ঞাসা করেছেন। তারা সক্রিয়ভাবে অংশগ্রহণ করেছিল এবং ভালো অগ্রগতি অর্জন করেছে। প্রতিদিন অনুশীলন চালিয়ে যান!`,
+    telugu: `ఈ వారం, ${name} ${subjectCount} విషయాలలో ${doubtCount} సందేహాలను అడిగారు. వారు చురుग्గా పాల్గొన్నారు మరియు మంచి పురోగతిని సాధించారు. ప్రతిరోజూ సాధన చేస్తూనే ఉండండి!`,
+    marathi: `या आठवड्यात, ${name} ने ${subjectCount} विषयांमध्ये ${doubtCount} शंका विचारल्या. त्यांनी सक्रिय सहभाग दर्शवला आणि चांगली प्रगती केली. दररोज सराव करत रहा!`,
+    tamil: `இந்த வாரம், ${name} ${subjectCount} பாடங்களில் ${doubtCount} சந்தேகங்களை கேட்டார். அவர் தீவிரமாக பங்கேற்று நல்ல முன்னேற்றம் கண்டுள்ளார். தினமும் பயிற்சி செய்யுங்கள்!`,
+    urdu: `اس ہفتے، ${name} نے ${subjectCount} مضامین میں ${doubtCount} شکوک و شبہات پوچھے ہیں۔ انہوں ने فعال شرکت دکھائی اور اچھی کارکردگی کا مظاہرہ کیا۔ روزانہ مشق جاری رکھیں!`,
+    gujarati: `આ અઠવાડિયે, ${name} એ ${subjectCount} વિષયોમાં ${doubtCount} પ્રશ્નો પૂછ્યા. તેઓએ સક્રિય ભાગ લીધો અને સારી પ્રગતિ કરી. દરરોજ અભ્યાસ ચાલુ રાખો!`,
+    kannada: `ಈ ವಾರ, ${name} ${subjectCount} ವಿಷಯಗಳಲ್ಲಿ ${doubtCount} ಸಂದೇಹಗಳನ್ನು ಕೇಳಿದ್ದಾರೆ. ಅವರು ಸಕ್ರಿಯವಾಗಿ ಪಾಲ್ಗೊಂಡಿದ್ದಾರೆ ಮತ್ತು ಉತ್ತಮ ಪ್ರಗತಿಯನ್ನು ಸಾಧಿಸಿದ್ದಾರೆ. ದಿನನಿತ್ಯದ ಅಭ್ಯಾಸವನ್ನು ಮುಂದುವರಿಸಿ!`,
+    odia: `ଏହି ସପ୍ତାହରେ, ${name} ${subjectCount} ବିଷୟରେ ${doubtCount} ଟି ପ୍ରଶ୍ନ ପଚାରିଥିଲେ। ସେ ସକ୍ରିୟ ଭାବରେ ଭାଗ ନେଇଥିଲେ ଏବଂ ଭଲ ଅଗြଗତି କରିଛନ୍ତି। ପ୍ରତିଦିନ ଅଭ୍ୟାସ ଜାରି ରଖନ୍ତୁ!`,
+    punjabi: `ਇਸ ਹਫ਼ਤੇ, ${name} ਨੇ ${subjectCount} ਵਿਸ਼ਿਆਂ ਵਿੱਚ ${doubtCount} ਸ਼ੰਕੇ ਪੁੱਛੇ। ਉਨ੍ਹਾਂ ਨੇ ਸਰਗਰਮ ਭਾਗੀਦਾਰੀ ਦਿਖਾਈ ਅਤੇ ਵਧੀਆ ਤਰੱਕੀ ਕੀਤੀ। ਰੋਜ਼ਾਨა ਅਭਿਆਸ ਕਰਦੇ ਰਹੋ!`,
+    malayalam: `ഈ ആഴ്ച, ${name} ${subjectCount} വിഷയങ്ങളിലായി ${doubtCount} സംശയങ്ങൾ ചോദിച്ചു. അവർ സജീവമായ പങ്കാളിത്തവും മികച്ച പുരോഗതിയും കാണിച്ചു. ദിവസവും പരിശീലനം തുടരുക!`,
+    assamese: `এই সপ্তাহত, ${name} এ ${subjectCount} টা বিষয়ত ${doubtCount} টা সন্দেহৰ কথা সুধিছে। তেওঁলোকে সক্ৰিয়ভাৱে অংশগ্ৰহণ কৰি ভাল উন্নতি দেখুৱাইছে। সদায় অনুশীলন কৰি থাকিব!`,
+    maithili: `एहि सप्ताह, ${name} ${subjectCount} विषय में कुल ${doubtCount} शंका पूछलनि। ओ सक्रिय सहभागिता देखौलनि आ नीक प्रगति कयलनि। दैनिक अभ्यास जारी राखू!`,
+    santali: `ᱱᱤᱭᱟᱹ ᱦᱟᱹᱯᱛᱟᱹ ᱨե, ${name} ᱫᱚ ${subjectCount} ᱜᱚᱴᱟᱝ ᱥᱟᱛᱟމ ᱨᱮ ${doubtCount} ᱜᱚᱴᱟᱝ ᱠᱩᱠᱞᱤ ᱠᱩᱞᱤ ᱟᱠᱟଦᱟ ᱾ ᱩᱱᱤ ᱫᱚ ᱵᱷᱟᱜᱮ ᱜᱮ ᱪᱷᱩޓᱟᱹᱣ ᱟᱨ ᱞᱟᱦᱟᱱᱛᱤ ᱟᱠᱟਦᱟ ᱾ ᱫᱤᱱᱟᱹᱢ ᱜᱮ ᱯᱟᱲᱦᱟᱣ ᱛᱟᱦେᱸն ᱢᱮ !`,
+    kashmiri: `يَتھ ہَفتَس مَنٛز، ${name} ہَن کٔرِ ${subjectCount} مَضامينَن مَنٛز ${doubtCount} سَوالات۔ تِمَو ہاو سَجاوٹ تہِ کٔر جَان طرَقّی۔ روزانہ مَشق جاری تھٔوِو!`,
+    nepali: `यो हप्ता, ${name} ले ${subjectCount} विषयहरूमा ${doubtCount} वटा जिज्ञासाहरू सोधे। उनले सक्रिय सहभागिता जनाएर राम्रो प्रगति गरे। दैनिक अभ्यास जारी राख्नुहोला!`,
+    sindhi: `هن هفتي، ${name} ${subjectCount} مضمونن ۾ ${doubtCount} سوال پڇيا. هن سرگرم حصو ورتو ۽ سٺي ترقي ڪئي. روزانو مشق جاري رکو!`,
+    konkani: `ह्या सप्तकांत, ${name} हाणे ${subjectCount} विशयांनी ${doubtCount} प्रस्न विचारले. ताणे सक्रिय वांटो घेतलो आनी बरी उदरगत केली. सदांच अभ्यास चालू दवरात!`,
+    dogri: `इस हफ़्ते, ${name} ने ${subjectCount} विशें च ${doubtCount} शंका पुच्छे। उने सक्रिय भागीदारी दस्सी ते चंगी तरक्की कीती। रोज अभ्यास करदे रोओ!`,
+    manipuri: `নোদম চপদা, ${name} না লুপসিং ${subjectCount} গী মনুংদা ${doubtCount} হংখ্রে। মহাক্না চাউনা শরুক য়াখি অমসুং অফবা খুমাং চাউশিনবা উৎখ্রে। নুমিৎ খুদিংগী প্রেক্টিস তৌবিয়ু!`,
+    bodo: `बे सप्ताहाव, ${name} आ ${subjectCount} ता आयदायाव ${doubtCount} ता सोंथि सोंबाय। बियो मोजां बाहागो लाबाय आरो मोजां दावगानाय दिनथिबाय। सានफ्रोमबो सोलोंबाय था!`
+  };
+  
+  const langKey = language.toLowerCase();
+  return templates[langKey] || templates.english;
+};
+
 export default function ParentSummaryPage({ params }: { params: { userId: string } }) {
   const userId = params.userId;
 
@@ -182,15 +212,7 @@ export default function ParentSummaryPage({ params }: { params: { userId: string
 
           // Make a basic dynamic local counseling report summary
           const uniqueSubjects = new Set(userDoubts.map((d: LocalDoubt) => d.subject));
-          let dynamicSummary = `This week, ${localUser.name} asked ${userDoubts.length} doubt(s) across ${uniqueSubjects.size} subject(s). They showed active participation and made good progress. Keep practicing daily!`;
-          
-          if (localUser.language.toLowerCase() === 'hindi') {
-            dynamicSummary = `इस सप्ताह, ${localUser.name} ने ${uniqueSubjects.size} विषय(ओं) में कुल ${userDoubts.length} प्रश्न पूछे। उन्होंने सक्रिय भागीदारी दिखाई और अच्छा प्रयास किया। दैनिक अभ्यास जारी रखें!`;
-          } else if (localUser.language.toLowerCase() === 'tamil') {
-            dynamicSummary = `இந்த வாரம், ${localUser.name} ${uniqueSubjects.size} பாடங்களில் ${userDoubts.length} சந்தேகங்களை கேட்டார். அவர்களின் முயற்சி நன்றாக உள்ளது!`;
-          } else if (localUser.language.toLowerCase() === 'bengali') {
-            dynamicSummary = `এই সপ্তাহে, ${localUser.name} ${uniqueSubjects.size} টি বিষয়ে ${userDoubts.length} টি সন্দেহ জিজ্ঞাসা করেছেন। তাদের প্রচেষ্টা প্রশংসনীয়!`;
-          }
+          const dynamicSummary = getLocalSummary(localUser.name, userDoubts.length, uniqueSubjects.size, localUser.language);
           
           setAiSummary(dynamicSummary);
         } catch (e) {

@@ -35,13 +35,9 @@ IMPORTANT:
 Respond ONLY in ${language}.
 
 Language rules:
-* If language = English → answer only in English.
-* If language = Hindi → answer only in Hindi.
-* If language = Tamil → answer only in Tamil.
-* If language = Telugu → answer only in Telugu.
-* Never switch languages unless explicitly asked.
-* Do not mix Hindi and English.
-* The selected language is mandatory.
+* You MUST respond ONLY in ${language} using its native script (e.g. Hindi in Devanagari script, Tamil in Tamil script, etc.).
+* Never switch languages unless explicitly asked by the student.
+* Do not mix languages. The selected language (${language}) is strictly mandatory.
 
 Student Class: ${class_level}
 
@@ -75,22 +71,34 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
       ]
     });
 
-    // Translate the follow-up request dynamically to prevent language confusion
-    let followUpQuery = "I did not understand this explanation. Please explain again using a completely different example or analogy.";
+    // Map the follow-up request prompt to the student's exact language
+    const followUpQueries: Record<string, string> = {
+      english: "I did not understand this explanation. Please explain again using a completely different example or analogy.",
+      hindi: "मुझे यह उदाहरण या तरीका समझ नहीं आया। कृपया किसी बिल्कुल अलग उदाहरण या तरीके से फिर से समझाइए।",
+      bengali: "আমি এই ব্যাখ্যাটি বুঝতে পারিনি। দয়া করে সম্পূর্ণ আলাদা একটি উদাহরণ দিয়ে আবার বুঝিয়ে বলুন।",
+      telugu: "నాకు ఈ వివరణ అర్థం కాలేదు. దయచేసి మరొక కొత్త ఉదాహరణతో మళ్ళీ వివరించండి.",
+      marathi: "मला हे स्पष्टीकरण समजले नाही. कृपया दुसऱ्या नवीन उदाहरणासह पुन्हा समजावून सांगा.",
+      tamil: "எனக்கு இந்த விளக்கம் புரியவில்லை. தயவுசெய்து வேறு ஒரு புதிய உதாரணத்துடன் மீண்டும் விளக்கவும்.",
+      urdu: "مجھے یہ وضاحت سمجھ نہیں آئی۔ براہ کرم بالکل مختلف مثال یا تشبیہ کا استعمال کرتے ہوئے دوبارہ وضاحت کریں۔",
+      gujarati: "મને આ સમજૂતી સમજાઈ નથી. કૃપા કરીને સંપૂર્ણપણે અલગ ઉદાહરણ અથવા સામ્યતાનો ઉપયોગ કરીને ફરીથી સમજાવો.",
+      kannada: "ನನಗೆ ಈ ವಿವರಣೆ ಅರ್ಥವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಂದು ಹೊಸ ಉದಾಹರಣೆಯೊಂದಿಗೆ ಮತ್ತೆ ವಿವರಿಸಿ.",
+      odia: "ମୁଁ ଏହି ବ୍ୟାଖ୍ୟา ବୁଝିପାରିଲି ନାହିଁ | ଦୟାକରି ଏକ ସମ୍ପୂର୍ଣ୍ଣ ଭିନ୍ନ ଉଦାହରଣ ବ୍ୟବହାର କରି ପୁଣି ବୁଝାନ୍ତୁ |",
+      punjabi: "ਮੈਨੂੰ ਇਹ ਵਿਆਖਿਆ ਸਮਝ ਨਹੀਂ ਆਈ। ਕਿਰਪਾ ਕਰਕੇ ਇੱਕ ਵੱਖਰੀ ਮਿਸਾਲ ਦੀ ਵਰਤੋਂ ਕਰਕੇ ਦੁਬਾਰਾ ਸਮਝਾਓ।",
+      malayalam: "എനിക്ക് ഈ വിശദീകരണം മനസ്സിലായില്ല. ദയവായി മറ്റൊരു പുതിയ ഉദാഹരണം ഉപയോഗിച്ച് വീണ്ടും വിശദീകരിക്കുക.",
+      assamese: "মই এই ব্যাখ্যাটো বুজি নাপালোঁ। অনুগ্ৰহ কৰি এটা সম্পূৰ্ণ বেলেগ উদাহৰণ ব্যৱহাৰ কৰি আকৌ বুজাই দিয়ক।",
+      maithili: "हमरा ई बात नै बुझायल। कृपा कऽ कोनो दोसर अलग उदाहरण दैत पुनः समझाउ।",
+      santali: "ᱤᱧ ᱫᱚ ᱱᱚᱣᱟ ᱵᱷᱟᱜᱮ ᱛᱮ ᱵᱟᱹᱧ ᱵᱩᱡᱷᱟᱹᱣ ᱞᱮᱫᱟ ᱾ ᱫᱟᱭᱟ ᱠᱟᱛે ᱮᱴᱟᱜ ᱞᱮᱠᱟᱱ ᱥᱟᱹᱫᱷᱟᱹᱨᱚᱱ ᱛե ᱟᱨᱦۆᱸ ᱵᱩᱡᱷᱟᱹᱣ ᱤᱧ ᱢᱮ ᱾",
+      kashmiri: "ميٚہ آو نَہ ييٚہ وَضاحَت سَمجھ۔ مَہرَبٲنی کٔرِتھ وَضاحَت کَرِو پَتہِ کُنہِ بیٚیہِ مِثالہِ سِت।",
+      nepali: "मैले यो स्पष्टीकरण बुझिनँ। कृपया अर्को बिल्कुलै फरक उदाहरण प्रयोग गरेर फेरि सम्झाउनुहोस्।",
+      sindhi: "مون کي هي وضاحت سمجهه ۾ نه آئي. مهرباني ڪري هڪ مختلف مثال استعمال ڪندي ٻيهر وضاحت ڪريو.",
+      konkani: "म्हाका हें स्पष्टीकरण समजलें ना. कृपा करून एका वेगळ्या उदाहरणाचो उपेग करून परत समजावन सांगात.",
+      dogri: "गी ऐ समझ नी आया। कृपा करियै कोई बक्खरा उदाहरण देइयै परत समझायो।",
+      manipuri: "ঐহাক্না ৱারোল অসি খঙদে। অন্য অতোপ্পা খুদম অমগা লোয়ননা অমুক্তা অমুক হন্না তাকপীয়ু।",
+      bodo: "आं बे बियाखौ बुजियाखिसै। अननानै गुबुन मोनसे बिदिनथि होनानै फिन बुजायफिन।"
+    };
+
     const langLower = language.toLowerCase();
-    if (langLower === 'hindi') {
-      followUpQuery = "मुझे यह उदाहरण या तरीका समझ नहीं आया। कृपया किसी बिल्कुल अलग उदाहरण या तरीके से फिर से समझाइए।";
-    } else if (langLower === 'tamil') {
-      followUpQuery = "எனக்கு இந்த விளக்கம் புரியவில்லை. தயவுசெய்து வேறு ஒரு புதிய உதாரணத்துடன் மீண்டும் விளக்கவும்.";
-    } else if (langLower === 'bengali') {
-      followUpQuery = "আমি এই ব্যাখ্যাটি বুঝতে পারিনি। দয়া করে সম্পূর্ণ আলাদা একটি উদাহরণ দিয়ে আবার বুঝিয়ে বলুন।";
-    } else if (langLower === 'telugu') {
-      followUpQuery = "నాకు ఈ వివరణ అర్థం కాలేదు. దయచేసి మరొక కొత్త ఉదాహరణతో మళ్ళీ వివరించండి.";
-    } else if (langLower === 'marathi') {
-      followUpQuery = "मला हे स्पष्टीकरण समजले नाही. कृपया दुसऱ्या नवीन उदाहरणासह पुन्हा समजावून सांगा.";
-    } else if (langLower === 'kannada') {
-      followUpQuery = "ನನಗೆ ಈ ವಿವರಣೆ ಅರ್ಥವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಂದು ಹೊಸ ಉದಾಹರಣೆಯೊಂದಿಗೆ ಮತ್ತೆ ವಿವರಿಸಿ.";
-    }
+    const followUpQuery = followUpQueries[langLower] || followUpQueries.english;
 
     const result = await chat.sendMessage(followUpQuery);
     let responseText = result.response.text() || '';
