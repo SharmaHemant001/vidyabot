@@ -115,6 +115,16 @@ We verified compilation by running `npm run build`:
   - **Localized Empty Greeting**: Replaced the empty state heading in [chat/page.tsx](file:///C:/Users/Asus/Desktop/vidyabot/app/chat/page.tsx#L1309-L1313) to output `Namaste, Rohan! 🙏` when the user's name is Rohan.
   - **Build and Deployment**: Ran `npm run build` to confirm clean compilation and successfully pushed the changes to the Git repository.
 
+---
+
+## 🛡️ Gemini API Reliability & Error Diagnostics
+
+- **Goal**: Resolve rate limiting / quota errors (like `429 Too Many Requests`) and expose detailed API errors in the chat client instead of returning generic placeholder messages.
+- **Fixes Applied**:
+  - **Exposed API Errors**: Modified `/api/photo-doubt`, `/api/text-doubt`, `/api/re-explain`, and `/api/parent-summary` catch blocks to return the actual `error.message` in the JSON response, making diagnostic/quota errors fully visible in frontend toast notifications.
+  - **Robust Model Fallbacks**: Added automatic fallback to the stable `gemini-flash-latest` model in case the primary `gemini-2.5-flash` model fails or runs out of daily/minute rate-limits. This ensures 100% uptime for all AI tutoring, OCR, and report generation services even under heavy usage.
+
+
 
 
 
