@@ -105,5 +105,16 @@ We verified compilation by running `npm run build`:
   - **Dynamic counselor translations**: Replaced hardcoded no-doubt parent reports with a dynamic, fast Gemini translation call in [parent-summary/route.ts](file:///C:/Users/Asus/Desktop/vidyabot/app/api/parent-summary/route.ts#L52-L78).
   - **Marketing text**: Updated the landing page and layout metadata descriptions.
 
+---
+
+## ⚡ Empty Demo Mode State & Localized Greeting
+
+- **Goal**: When Demo Mode is activated, the chat page must open completely empty (initialized as `[]`) without any auto-sent queries or pre-loaded database/mock messages. The empty state with the greeting `Namaste, Rohan! 🙏` and all 6 starter question chips should be fully visible first.
+- **Fixes Applied**:
+  - **Empty Chat Initialization**: Intercepted `fetchChatHistory` in [chat/page.tsx](file:///C:/Users/Asus/Desktop/vidyabot/app/chat/page.tsx#L445-L450) to instantly set `messages` to an empty array `[]` and return early if the user is Rohan. This prevents any pre-loaded seed history from the database or mock history from populating.
+  - **Localized Empty Greeting**: Replaced the empty state heading in [chat/page.tsx](file:///C:/Users/Asus/Desktop/vidyabot/app/chat/page.tsx#L1309-L1313) to output `Namaste, Rohan! 🙏` when the user's name is Rohan.
+  - **Build and Deployment**: Ran `npm run build` to confirm clean compilation and successfully pushed the changes to the Git repository.
+
+
 
 
