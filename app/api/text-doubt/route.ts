@@ -57,16 +57,33 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
       systemInstruction: systemPrompt,
     });
 
-    const result = await model.generateContent(question);
-    let responseText = result.response.text() || '';
+    let activeModel = model;
+    let responseText = "";
+    try {
+      const result = await model.generateContent(question);
+      responseText = result.response.text() || '';
+    } catch (genError) {
+      console.warn("Primary model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", genError);
+      const fallbackModel = genAI.getGenerativeModel({
+        model: "gemini-flash-latest",
+        systemInstruction: systemPrompt,
+      });
+      activeModel = fallbackModel;
+      const result = await fallbackModel.generateContent(question);
+      responseText = result.response.text() || '';
+    }
 
     // Response Validation (Requirement 6)
     if (language === "English" && /[\u0900-\u097F]/.test(responseText)) {
       console.log("Validation Failed: Hindi character detected in English response. Regenerating...");
-      const strictResult = await model.generateContent(
-        `${question}\n\n[SYSTEM NOTE: Your previous answer contained Hindi characters. You must respond ONLY in English. Do not use Hindi script or words.]`
-      );
-      responseText = strictResult.response.text() || responseText;
+      try {
+        const strictResult = await activeModel.generateContent(
+          `${question}\n\n[SYSTEM NOTE: Your previous answer contained Hindi characters. You must respond ONLY in English. Do not use Hindi script or words.]`
+        );
+        responseText = strictResult.response.text() || responseText;
+      } catch (valError) {
+        console.warn("Validation regeneration failed:", valError);
+      }
     }
 
     // Regex subject extraction
@@ -106,7 +123,7 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
   } catch (error) {
     console.error("Text doubt API error:", error);
     return NextResponse.json({
-      error: "AI is taking a break. Please try again in a moment.",
+      error: error instanceof Error ? error.message : "AI is taking a break. Please try again in a moment.",
       response: "Sorry, I couldn't process your doubt right now. Please try again!"
     }, { status: 200 });
   }

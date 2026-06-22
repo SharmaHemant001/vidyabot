@@ -173,16 +173,33 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
       systemInstruction: systemPrompt,
     });
 
-    const result = await model.generateContent(transcript);
-    let responseText = result.response.text() || '';
+    let activeModel = model;
+    let responseText = "";
+    try {
+      const result = await model.generateContent(transcript);
+      responseText = result.response.text() || '';
+    } catch (genError) {
+      console.warn("Primary model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", genError);
+      const fallbackModel = genAI.getGenerativeModel({
+        model: "gemini-flash-latest",
+        systemInstruction: systemPrompt,
+      });
+      activeModel = fallbackModel;
+      const result = await fallbackModel.generateContent(transcript);
+      responseText = result.response.text() || '';
+    }
 
     // Response Validation (Requirement 6)
     if (language === "English" && /[\u0900-\u097F]/.test(responseText)) {
       console.log("Validation Failed (Voice doubt): Hindi character detected in English response. Regenerating...");
-      const strictResult = await model.generateContent(
-        `${transcript}\n\n[SYSTEM NOTE: Your previous answer contained Hindi characters. You must respond ONLY in English. Do not use Hindi script or words.]`
-      );
-      responseText = strictResult.response.text() || responseText;
+      try {
+        const strictResult = await activeModel.generateContent(
+          `${transcript}\n\n[SYSTEM NOTE: Your previous answer contained Hindi characters. You must respond ONLY in English. Do not use Hindi script or words.]`
+        );
+        responseText = strictResult.response.text() || responseText;
+      } catch (valError) {
+        console.warn("Validation regeneration failed:", valError);
+      }
     }
 
     // Regex subject extraction

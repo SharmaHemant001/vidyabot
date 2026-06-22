@@ -45,8 +45,15 @@ export async function POST(request: Request) {
       const geminiResult = await geminiModel.generateContent([geminiPrompt, imagePart]);
       extractedQuestion = geminiResult.response.text().trim();
     } catch (ocrError) {
-      console.error("Gemini OCR error:", ocrError);
-      extractedQuestion = "Could not extract question from photo.";
+      console.warn("Primary OCR model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", ocrError);
+      try {
+        const fallbackOcrModel = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+        const geminiResult = await fallbackOcrModel.generateContent([geminiPrompt, imagePart]);
+        extractedQuestion = geminiResult.response.text().trim();
+      } catch (fallbackOcrError) {
+        console.error("Gemini OCR fallback error:", fallbackOcrError);
+        extractedQuestion = "Could not extract question from photo.";
+      }
     }
 
     if (!extractedQuestion || extractedQuestion === "Could not extract question from photo.") {
@@ -87,16 +94,33 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
       systemInstruction: systemPrompt,
     });
 
-    const result = await explainModel.generateContent(extractedQuestion);
-    let responseText = result.response.text() || '';
+    let activeModel = explainModel;
+    let responseText = "";
+    try {
+      const result = await explainModel.generateContent(extractedQuestion);
+      responseText = result.response.text() || '';
+    } catch (genError) {
+      console.warn("Primary model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", genError);
+      const fallbackModel = genAI.getGenerativeModel({
+        model: "gemini-flash-latest",
+        systemInstruction: systemPrompt,
+      });
+      activeModel = fallbackModel;
+      const result = await fallbackModel.generateContent(extractedQuestion);
+      responseText = result.response.text() || '';
+    }
 
     // Response Validation (Requirement 6)
     if (language === "English" && /[\u0900-\u097F]/.test(responseText)) {
       console.log("Validation Failed (Photo doubt): Hindi character detected in English response. Regenerating...");
-      const strictResult = await explainModel.generateContent(
-        `${extractedQuestion}\n\n[SYSTEM NOTE: Your previous answer contained Hindi characters. You must respond ONLY in English. Do not use Hindi script or words.]`
-      );
-      responseText = strictResult.response.text() || responseText;
+      try {
+        const strictResult = await activeModel.generateContent(
+          `${extractedQuestion}\n\n[SYSTEM NOTE: Your previous answer contained Hindi characters. You must respond ONLY in English. Do not use Hindi script or words.]`
+        );
+        responseText = strictResult.response.text() || responseText;
+      } catch (valError) {
+        console.warn("Validation regeneration failed:", valError);
+      }
     }
 
     // Regex subject extraction
@@ -137,7 +161,7 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
   } catch (error) {
     console.error("Photo doubt API error:", error);
     return NextResponse.json({
-      error: "AI is taking a break. Please try again in a moment.",
+      error: error instanceof Error ? error.message : "AI is taking a break. Please try again in a moment.",
       response: "Sorry, I couldn't process your photo doubt right now. Please try again!"
     }, { status: 200 });
   }

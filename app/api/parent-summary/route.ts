@@ -59,8 +59,16 @@ export async function POST(request: Request) {
       try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const prompt = `Translate this sentence into ${user.language} (using its native script, e.g. Hindi in Devanagari script, Tamil in Tamil script, etc.): "This week, ${user.name} did not ask any doubts. They are doing well in their studies, but encourage them to ask questions whenever they face difficulties!" Output ONLY the translation, with no extra tags, quotes, or explanation.`;
-        const result = await model.generateContent(prompt);
-        const noDoubtSummary = result.response.text().trim();
+        let noDoubtSummary = "";
+        try {
+          const result = await model.generateContent(prompt);
+          noDoubtSummary = result.response.text().trim();
+        } catch (transError) {
+          console.warn("Primary translation model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", transError);
+          const fallbackModel = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+          const result = await fallbackModel.generateContent(prompt);
+          noDoubtSummary = result.response.text().trim();
+        }
 
         return NextResponse.json({
           summary: noDoubtSummary,
@@ -103,8 +111,19 @@ Keep the summary under 120 words. Be kind, supportive, and professional.`;
       systemInstruction: systemPrompt,
     });
 
-    const result = await model.generateContent(`Here are the doubts asked by ${user.name} this week:\n\n${doubtsListText}`);
-    const summary = (result.response.text() || '').trim();
+    let summary = "";
+    try {
+      const result = await model.generateContent(`Here are the doubts asked by ${user.name} this week:\n\n${doubtsListText}`);
+      summary = (result.response.text() || '').trim();
+    } catch (genError) {
+      console.warn("Primary counselor model gemini-2.5-flash failed, trying fallback gemini-flash-latest:", genError);
+      const fallbackModel = genAI.getGenerativeModel({
+        model: "gemini-flash-latest",
+        systemInstruction: systemPrompt,
+      });
+      const result = await fallbackModel.generateContent(`Here are the doubts asked by ${user.name} this week:\n\n${doubtsListText}`);
+      summary = (result.response.text() || '').trim();
+    }
 
     // Calculate weakest subject by count
     const subjectCounts: Record<string, number> = {};
@@ -131,7 +150,7 @@ Keep the summary under 120 words. Be kind, supportive, and professional.`;
   } catch (error) {
     console.error("Parent summary API error:", error);
     return NextResponse.json({
-      error: "AI is taking a break. Please try again in a moment.",
+      error: error instanceof Error ? error.message : "AI is taking a break. Please try again in a moment.",
       summary: "इस सप्ताह छात्र सक्रिय था और अपनी पढ़ाई में अच्छा प्रयास कर रहा था। कृपया निरंतर अभ्यास जारी रखें!",
       doubt_count: 5,
       subjects_covered: 3,

@@ -100,16 +100,45 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
     const langLower = language.toLowerCase();
     const followUpQuery = followUpQueries[langLower] || followUpQueries.english;
 
-    const result = await chat.sendMessage(followUpQuery);
-    let responseText = result.response.text() || '';
+    let responseText = "";
+    let activeChat = chat;
+    try {
+      const result = await chat.sendMessage(followUpQuery);
+      responseText = result.response.text() || '';
+    } catch (chatError) {
+      console.warn("Primary chat session gemini-2.5-flash failed, trying fallback gemini-flash-latest:", chatError);
+      const fallbackModel = genAI.getGenerativeModel({
+        model: "gemini-flash-latest",
+        systemInstruction: systemPrompt,
+      });
+      const fallbackChat = fallbackModel.startChat({
+        history: [
+          {
+            role: "user",
+            parts: [{ text: original_question }]
+          },
+          {
+            role: "model",
+            parts: [{ text: original_response }]
+          }
+        ]
+      });
+      activeChat = fallbackChat;
+      const result = await fallbackChat.sendMessage(followUpQuery);
+      responseText = result.response.text() || '';
+    }
 
     // Response Validation (Requirement 6)
     if (language === "English" && /[\u0900-\u097F]/.test(responseText)) {
       console.log("Validation Failed (Re-explain): Hindi character detected in English response. Regenerating...");
-      const strictResult = await chat.sendMessage(
-        "Your previous answer was not in English. Respond ONLY in English."
-      );
-      responseText = strictResult.response.text() || responseText;
+      try {
+        const strictResult = await activeChat.sendMessage(
+          "Your previous answer was not in English. Respond ONLY in English."
+        );
+        responseText = strictResult.response.text() || responseText;
+      } catch (valError) {
+        console.warn("Validation regeneration failed:", valError);
+      }
     }
 
     const cleanResponse = responseText.replace(/\[SUBJECT:\s*[^\]\n]+\]\n?/i, '').trim();
@@ -130,7 +159,7 @@ TONE: Warm, patient, never condescending. You are the best teacher the student h
   } catch (error) {
     console.error("Re-explain API error:", error);
     return NextResponse.json({
-      error: "AI is taking a break. Please try again in a moment.",
+      error: error instanceof Error ? error.message : "AI is taking a break. Please try again in a moment.",
       response: "Sorry, I couldn't generate a new explanation right now. Please try again!"
     }, { status: 200 });
   }
