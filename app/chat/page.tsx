@@ -45,6 +45,31 @@ const INDIAN_LANGUAGES = [
   { code: "english",    name: "English",     native: "English",        flag: "🇬🇧" },
 ];
 
+const languageLocaleMap: Record<string, string> = {
+  hindi: 'hi-IN',
+  bengali: 'bn-IN',
+  telugu: 'te-IN',
+  marathi: 'mr-IN',
+  tamil: 'ta-IN',
+  urdu: 'ur-IN',
+  gujarati: 'gu-IN',
+  kannada: 'kn-IN',
+  odia: 'or-IN',
+  punjabi: 'pa-IN',
+  malayalam: 'ml-IN',
+  assamese: 'as-IN',
+  maithili: 'mai-IN',
+  santali: 'sat-IN',
+  kashmiri: 'ks-IN',
+  nepali: 'ne-NP',
+  sindhi: 'sd-IN',
+  konkani: 'kok-IN',
+  dogri: 'doi-IN',
+  manipuri: 'mni-IN',
+  bodo: 'brx-IN',
+  english: 'en-IN'
+};
+
 interface LocalDoubt {
   id: string;
   user_id: string;
@@ -291,6 +316,9 @@ export default function ChatPage() {
         audioRef.current.pause();
         audioRef.current.onended = null;
         audioRef.current.onpause = null;
+      }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
       }
     };
   }, []);
@@ -572,6 +600,15 @@ export default function ChatPage() {
     const queryText = customText || inputText;
     if (!queryText.trim() || !user) return;
 
+    // Cancel active speech/audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setPlayingMessageId(null);
+
     const userText = queryText;
     if (!customText) setInputText('');
 
@@ -649,6 +686,15 @@ export default function ChatPage() {
     if (!file || !user) return;
 
     e.target.value = '';
+
+    // Cancel active speech/audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setPlayingMessageId(null);
 
     // Convert file to base64 for inline preview and local caching
     let base64Data = '';
@@ -752,6 +798,15 @@ export default function ChatPage() {
       showToast('Voice not supported on this browser. Use text or photo instead.');
       return;
     }
+
+    // Cancel active speech/audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setPlayingMessageId(null);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -977,14 +1032,17 @@ export default function ChatPage() {
         saveLocalDoubt(data.transcript || 'Voice Doubt', data.response, data.subject || 'Other', 'voice');
       }
 
-      if (data.audio_base64) {
+      if (data.audio_base_6_4 || data.audio_base64) {
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.onended = null;
           audioRef.current.onpause = null;
         }
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
 
-        const audio = new Audio(`data:audio/mp3;base64,${data.audio_base64}`);
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio_base_6_4 || data.audio_base64}`);
         audioRef.current = audio;
         setPlayingMessageId(assistantMsg.id);
 
@@ -996,9 +1054,11 @@ export default function ChatPage() {
         };
 
         audio.play().catch(e => {
-          console.warn('Autoplay blocked by browser:', e);
-          setPlayingMessageId(null);
+          console.warn('Autoplay blocked by browser, falling back to Web Speech API:', e);
+          speakText(data.response, assistantMsg.id);
         });
+      } else {
+        speakText(data.response, assistantMsg.id);
       }
 
     } catch (err) {
@@ -1054,7 +1114,7 @@ export default function ChatPage() {
         timestamp: new Date(),
         subject: originalMsg.subject || 'Other',
         inputType: originalMsg.inputType,
-        audioBase64: data.audio_base_64 || undefined,
+        audioBase64: data.audio_base_6_4 || undefined,
         isReexplain: true
       };
 
@@ -1064,14 +1124,17 @@ export default function ChatPage() {
         saveLocalDoubt(`Re-explain: ${studentQuestion}`, data.response, originalMsg.subject || 'Other', originalMsg.inputType || 'text');
       }
 
-      if (data.audio_base_64) {
+      if (data.audio_base_6_4) {
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.onended = null;
           audioRef.current.onpause = null;
         }
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
 
-        const audio = new Audio(`data:audio/mp3;base64,${data.audio_base_64}`);
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio_base_6_4}`);
         audioRef.current = audio;
         setPlayingMessageId(newAssistantMsg.id);
 
@@ -1083,9 +1146,11 @@ export default function ChatPage() {
         };
 
         audio.play().catch(e => {
-          console.warn('Autoplay blocked by browser:', e);
-          setPlayingMessageId(null);
+          console.warn('Autoplay blocked by browser, falling back to Web Speech API:', e);
+          speakText(data.response, newAssistantMsg.id);
         });
+      } else if (originalMsg.inputType === 'voice') {
+        speakText(data.response, newAssistantMsg.id);
       }
     } catch (err) {
       console.error(err);
@@ -1095,12 +1160,51 @@ export default function ChatPage() {
     }
   };
 
-  const playAudio = (base64: string, messageId: string) => {
+  const speakText = (text: string, messageId: string) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    window.speechSynthesis.cancel();
+
+    let cleanText = text;
+    if (cleanText.startsWith('[SUBJECT:')) {
+      const lines = cleanText.split('\n');
+      cleanText = lines.slice(1).join('\n');
+    }
+    cleanText = cleanText.replace(/\*\*+/g, '').replace(/__+/g, '').replace(/`+/g, '');
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+
+    const userLang = user?.language?.toLowerCase() || 'english';
+    const locale = languageLocaleMap[userLang] || 'hi-IN';
+    utterance.lang = locale;
+
+    const voices = window.speechSynthesis.getVoices();
+    const voice = voices.find(v => v.lang.startsWith(locale) || v.lang.includes(locale.replace('-', '_')));
+    if (voice) {
+      utterance.voice = voice;
+    }
+
+    utterance.onend = () => {
+      setPlayingMessageId(null);
+    };
+    utterance.onerror = (e) => {
+      console.warn("SpeechSynthesis error:", e);
+      setPlayingMessageId(null);
+    };
+
+    setPlayingMessageId(messageId);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const playAudio = (base64: string | undefined, messageId: string, text: string) => {
     if (playingMessageId === messageId) {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.onended = null;
         audioRef.current.onpause = null;
+      }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
       }
       setPlayingMessageId(null);
       return;
@@ -1111,22 +1215,29 @@ export default function ChatPage() {
       audioRef.current.onended = null;
       audioRef.current.onpause = null;
     }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
 
-    const audio = new Audio(`data:audio/mp3;base64,${base64}`);
-    audioRef.current = audio;
-    setPlayingMessageId(messageId);
+    if (base64) {
+      const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+      audioRef.current = audio;
+      setPlayingMessageId(messageId);
 
-    audio.onended = () => {
-      setPlayingMessageId(null);
-    };
-    audio.onpause = () => {
-      setPlayingMessageId(null);
-    };
+      audio.onended = () => {
+        setPlayingMessageId(null);
+      };
+      audio.onpause = () => {
+        setPlayingMessageId(null);
+      };
 
-    audio.play().catch(e => {
-      console.warn('Failed to play audio:', e);
-      setPlayingMessageId(null);
-    });
+      audio.play().catch(e => {
+        console.warn('Failed to play audio, falling back to Web Speech API:', e);
+        speakText(text, messageId);
+      });
+    } else {
+      speakText(text, messageId);
+    }
   };
 
   // Personalized Time-based Greeting (Feature B)
@@ -1451,9 +1562,9 @@ export default function ChatPage() {
                   {/* Footer Actions */}
                   {!isStudent && (
                     <div className="mt-3 pt-3 border-t border-[#415A77]/20 flex flex-wrap items-center gap-2">
-                      {msg.audioBase64 && (
+                      {(msg.audioBase64 || msg.inputType === 'voice') && (
                         <button
-                          onClick={() => playAudio(msg.audioBase64!, msg.id)}
+                          onClick={() => playAudio(msg.audioBase64, msg.id, msg.text)}
                           className={`flex items-center space-x-1 text-[11px] font-bold min-h-[32px] px-2 rounded transition ${
                             playingMessageId === msg.id
                               ? 'text-amber-400 hover:text-amber-300 bg-amber-500/10'
