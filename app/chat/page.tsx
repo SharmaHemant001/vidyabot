@@ -443,6 +443,11 @@ export default function ChatPage() {
   const fetchChatHistory = async (userId: string, userName?: string) => {
     const isRohan = userId === '00000000-0000-0000-0000-000000000001' || (userName && userName.toLowerCase() === 'rohan');
 
+    if (isRohan) {
+      setMessages([]);
+      return;
+    }
+
     if (userId.startsWith('local-') && !isRohan) {
       try {
         const localDoubts: LocalDoubt[] = JSON.parse(localStorage.getItem('local_doubts') || '[]');
@@ -1307,7 +1312,9 @@ export default function ChatPage() {
               🧠
             </div>
             <div>
-              <h2 className="text-2xl font-black text-white">{getGreeting(user.name)} 🙏</h2>
+              <h2 className="text-2xl font-black text-white">
+                {user.name.toLowerCase() === 'rohan' ? 'Namaste, Rohan!' : getGreeting(user.name)} 🙏
+              </h2>
               <p className="text-xs text-[#0D9488] uppercase tracking-widest font-bold mt-1">VidyaBot Regional Tutor</p>
             </div>
             <p className="text-sm text-[#94A3B8] max-w-md leading-relaxed">
