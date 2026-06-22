@@ -127,6 +127,16 @@ We verified compilation by running `npm run build`:
   - **Mathematical OCR Prompt Refinement**: Updated the Gemini OCR prompt in [`app/api/photo-doubt/route.ts`](file:///C:/Users/Asus/Desktop/vidyabot/app/api/photo-doubt/route.ts#L39-L43) to explicitly instruct Gemini to extract mathematical equations, formulas, and matrices, transcoding them into LaTeX notation.
   - **MIME Type Coercion**: Coerced generic browser binary uploads (like `application/octet-stream` or missing MIME types) to `image/jpeg` in [`app/api/photo-doubt/route.ts`](file:///C:/Users/Asus/Desktop/vidyabot/app/api/photo-doubt/route.ts#L32-L37) to prevent Google Generative AI validation errors.
 
+---
+
+## 🔊 Managed Voice Re-explanations
+
+- **Goal**: Ensure that clicking "Re-explain" (`समझ नहीं आया? Re-explain`) on a voice doubt generates a spoken audio response via ElevenLabs, rendering the "Listen" button and auto-playing the audio just like a first-time voice doubt.
+- **Fixes Applied**:
+  - **ElevenLabs API Synthesis**: Added ElevenLabs speech generation block into [`app/api/re-explain/route.ts`](file:///C:/Users/Asus/Desktop/vidyabot/app/api/re-explain/route.ts#L125-L160) to generate Bella voice audio for re-explanations whenever the input type is `voice`.
+  - **Re-explain Audio Autoplay**: Modified `handleReexplain` in [`app/chat/page.tsx`](file:///C:/Users/Asus/Desktop/vidyabot/app/chat/page.tsx#L1027-L1094) to request the correct `inputType`, record the returned `audio_base_64` in message state, and automatically play it on addition.
+
+
 
 
 
